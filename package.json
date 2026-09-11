@@ -7,8 +7,9 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "check": "npm run typecheck && npm test",
+    "content:prepare": "npm run build && node dist/cli/prepare-fixtures.js",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run --dir tests"
   },
   "engines": {
     "node": ">=22"

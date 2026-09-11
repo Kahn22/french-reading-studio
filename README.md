@@ -33,6 +33,8 @@ A learner vocabulary item is exactly `(surfaceFormId, senseId)`. Occurrences in 
 
 Prepared quiz items also point to this global pair, never to a work. They are authored and validated before learner use; runtime generation is outside the design.
 
+Vocabulary publication is automatic and derived rather than stored. A valid `Surface form + Sense` pair becomes learner-published as soon as matching prepared quiz content exists. There is no separate vocabulary publish switch to forget or duplicate. Automatic vocabulary publication does not bypass the work gate: occurrences are exposed only from a fully validated `learning_ready` or `published` work.
+
 ### Publication workflow
 
 Works progress monotonically through:
@@ -52,7 +54,10 @@ The fixtures preserve La Fontaine's wording with conventional modern typography.
 ```text
 src/
   content/fixtures/       Reference content for the ingestion pipeline
+  cli/                    Reproducible editorial commands
   domain/                 Schemas, types, validation, deterministic helpers
+  ingestion/              Tokenization and review-manifest preparation
+content/review/            Generated manifests intended for human review
 tests/                    Model and invariant tests
 ```
 
@@ -67,6 +72,18 @@ tests/                    Model and invariant tests
 7. Advance publication state only after `validateContentBundle` passes.
 
 `validateContentBundle` is pure, sorts diagnostics deterministically, and does not mutate input. Re-running it on identical content produces identical output.
+
+## Editorial ingestion
+
+Generate review manifests for the canonical fixtures with:
+
+```bash
+npm run content:prepare
+```
+
+The command first builds the project and then writes one manifest per work under `content/review`. It uses exact character spans, normalized token values, stable content-derived candidate IDs, and a SHA-256 source digest. It deliberately records no timestamp, so identical input produces byte-identical output and unchanged files are not rewritten.
+
+All new candidates start as `pending`. Capitalization is only a review hint: the pipeline never guesses that a title-cased word is or is not learner vocabulary. An editor must explicitly classify every candidate as vocabulary, a proper noun, or an editorial artifact. Vocabulary decisions additionally require an existing lemma, sense, and surface-form identity before review can be marked complete.
 
 ## First collection
 
