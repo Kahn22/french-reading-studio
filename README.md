@@ -85,6 +85,15 @@ The command first builds the project and then writes one manifest per work under
 
 All new candidates start as `pending`. Capitalization is only a review hint: the pipeline never guesses that a title-cased word is or is not learner vocabulary. An editor must explicitly classify every candidate as vocabulary, a proper noun, or an editorial artifact. Vocabulary decisions additionally require an existing lemma, sense, and surface-form identity before review can be marked complete.
 
+Build every checked-in content artifact and verify that generated files are current with:
+
+```bash
+npm run content:build
+npm run content:check
+```
+
+The first learning-ready package is `content/learning/le-corbeau-et-le-renard.json`. It includes all reviewed learner tokens (not a reduced “core vocabulary” list), explicit proper-noun exclusions, eleven bilingual thought units, expressions, indexed occurrences, and eight pre-authored quiz levels for every `Surface form + Sense` identity.
+
 ## First collection
 
 The canonical catalog reserves Jean de La Fontaine's *Fables*, Books I–XII, with ordering preserved. The first pipeline fixtures are:

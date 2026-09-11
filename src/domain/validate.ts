@@ -26,7 +26,12 @@ export function validateContentBundle(input: unknown): ValidationResult {
   b.surfaceForms.forEach((x) => reference(lemmas, x.lemmaId, `surfaceForms.${x.id}.lemmaId`, diagnostics));
   const senseById = new Map(b.senses.map((x) => [x.id, x]));
   const surfaceById = new Map(b.surfaceForms.map((x) => [x.id, x]));
-  const quizKeys = new Set(b.quizItems.map((x) => vocabularyIdentityKey(x.surfaceFormId, x.senseId)));
+  const quizLevels = new Map<string, Set<number>>();
+  for (const quiz of b.quizItems) {
+    const key = vocabularyIdentityKey(quiz.surfaceFormId, quiz.senseId);
+    const levels = quizLevels.get(key) ?? new Set<number>();
+    levels.add(quiz.masteryLevel); quizLevels.set(key, levels);
+  }
   for (const occurrence of b.occurrences) {
     reference(works, occurrence.workId, `occurrences.${occurrence.id}.workId`, diagnostics);
     reference(units, occurrence.unitId, `occurrences.${occurrence.id}.unitId`, diagnostics);
@@ -37,6 +42,14 @@ export function validateContentBundle(input: unknown): ValidationResult {
     if (!surface) reference(surfaces, occurrence.surfaceFormId, `occurrences.${occurrence.id}.surfaceFormId`, diagnostics);
     if (sense && surface && sense.lemmaId !== surface.lemmaId) add(diagnostics, "vocabulary.lemma_mismatch", `occurrences.${occurrence.id}`, "Surface form and sense must belong to the same lemma");
     if (unit && (occurrence.end > unit.french.length || occurrence.start >= occurrence.end)) add(diagnostics, "occurrence.invalid_span", `occurrences.${occurrence.id}`, "Occurrence span must be inside its thought unit");
+    if (unit && surface && normalize(unit.french.slice(occurrence.start, occurrence.end)) !== surface.normalized) add(diagnostics, "occurrence.surface_mismatch", `occurrences.${occurrence.id}`, "Occurrence span must match the referenced surface form");
+  }
+  for (const exclusion of b.exclusions) {
+    reference(works, exclusion.workId, `exclusions.${exclusion.id}.workId`, diagnostics);
+    reference(units, exclusion.unitId, `exclusions.${exclusion.id}.unitId`, diagnostics);
+    const unit = b.units.find((x) => x.id === exclusion.unitId);
+    if (unit && unit.workId !== exclusion.workId) add(diagnostics, "exclusion.work_mismatch", `exclusions.${exclusion.id}`, "Exclusion and unit must belong to the same work");
+    if (unit && (exclusion.end > unit.french.length || exclusion.start >= exclusion.end || unit.french.slice(exclusion.start, exclusion.end) !== exclusion.text)) add(diagnostics, "exclusion.invalid_span", `exclusions.${exclusion.id}`, "Exclusion text and span must match its thought unit");
   }
   for (const quiz of b.quizItems) {
     const sense = senseById.get(quiz.senseId), surface = surfaceById.get(quiz.surfaceFormId);
@@ -44,12 +57,18 @@ export function validateContentBundle(input: unknown): ValidationResult {
     if (!surface) reference(surfaces, quiz.surfaceFormId, `quizItems.${quiz.id}.surfaceFormId`, diagnostics);
     if (sense && surface && sense.lemmaId !== surface.lemmaId) add(diagnostics, "vocabulary.lemma_mismatch", `quizItems.${quiz.id}`, "Surface form and sense must belong to the same lemma");
   }
+  for (const expression of b.expressions) {
+    reference(works, expression.workId, `expressions.${expression.id}.workId`, diagnostics);
+    reference(units, expression.unitId, `expressions.${expression.id}.unitId`, diagnostics);
+  }
   for (const work of b.works.filter((x) => readyStates.has(x.publicationState))) {
     const status = b.readiness.find((x) => x.workId === work.id);
     if (!status?.thoughtUnitsComplete || !status.occurrencesReviewed || status.unresolvedLearnerTokens.length) add(diagnostics, "publication.incomplete", `works.${work.id}`, "Learning-ready and published works require complete, reviewed content with no unresolved learner tokens");
     if (!b.sources.some((x) => x.workId === work.id) || !b.units.some((x) => x.workId === work.id)) add(diagnostics, "publication.missing_content", `works.${work.id}`, "Learning-ready and published works require source text and thought units");
-    const missingQuiz = b.occurrences.filter((x) => x.workId === work.id).some((x) => !quizKeys.has(vocabularyIdentityKey(x.surfaceFormId, x.senseId)));
-    if (missingQuiz) add(diagnostics, "publication.missing_quiz", `works.${work.id}`, "Every vocabulary identity must have prepared quiz content before learner use");
+    if (b.units.filter((x) => x.workId === work.id).some((x) => !x.english)) add(diagnostics, "publication.missing_translation", `works.${work.id}`, "Every thought unit requires an English translation before learner use");
+    if (b.units.some((x) => x.workId === work.id && !x.english)) add(diagnostics, "publication.missing_translation", `works.${work.id}`, "Every thought unit requires a prepared English translation before learner use");
+    const missingQuiz = b.occurrences.filter((x) => x.workId === work.id).some((x) => (quizLevels.get(vocabularyIdentityKey(x.surfaceFormId, x.senseId))?.size ?? 0) !== 8);
+    if (missingQuiz) add(diagnostics, "publication.missing_quiz", `works.${work.id}`, "Every vocabulary identity must have prepared quiz content for mastery levels 1–8 before learner use");
   }
   validateOrdinals(b.books, "collectionId", diagnostics);
   validateOrdinals(b.works, "bookId", diagnostics);
@@ -58,6 +77,7 @@ export function validateContentBundle(input: unknown): ValidationResult {
 }
 
 function ids(items: { id: string }[]): Set<string> { return new Set(items.map((x) => x.id)); }
+function normalize(value: string): string { return value.normalize("NFC").replaceAll("'", "’").toLocaleLowerCase("fr-FR"); }
 function add(items: Diagnostic[], code: string, path: string, message: string): void { items.push({ code, path, message }); }
 function reference(values: Set<string>, value: string, path: string, diagnostics: Diagnostic[]): void {
   if (!values.has(value)) add(diagnostics, "reference.missing", path, `Unknown reference: ${value}`);
@@ -67,7 +87,7 @@ function byDiagnostic(a: Diagnostic, b: Diagnostic): number {
 }
 function uniqueIds(bundle: ContentBundle, diagnostics: Diagnostic[]): void {
   const groups = [bundle.authors, bundle.collections, bundle.books, bundle.works, bundle.units, bundle.lemmas,
-    bundle.senses, bundle.surfaceForms, bundle.occurrences, bundle.expressions, bundle.notes, bundle.quizItems];
+    bundle.senses, bundle.surfaceForms, bundle.occurrences, bundle.exclusions, bundle.expressions, bundle.notes, bundle.quizItems];
   const seen = new Set<string>();
   for (const item of groups.flat()) {
     if (seen.has(item.id)) add(diagnostics, "id.duplicate", item.id, "Stable IDs must be globally unique");

@@ -8,6 +8,8 @@
     "build": "tsc -p tsconfig.build.json",
     "check": "npm run typecheck && npm test",
     "content:prepare": "npm run build && node dist/cli/prepare-fixtures.js",
+    "content:build": "npm run build && node dist/cli/prepare-fixtures.js && node dist/cli/build-corbeau.js",
+    "content:check": "npm run content:build && git diff --exit-code -- content",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --dir tests"
   },

@@ -15,11 +15,14 @@ export function isVocabularyIdentityLearnerPublished(
 ): boolean {
   const surface = bundle.surfaceForms.find((item) => item.id === surfaceFormId);
   const sense = bundle.senses.find((item) => item.id === senseId);
+  const preparedLevels = new Set(bundle.quizItems
+    .filter((quiz) => quiz.surfaceFormId === surfaceFormId && quiz.senseId === senseId)
+    .map((quiz) => quiz.masteryLevel));
   return Boolean(
     surface
     && sense
     && surface.lemmaId === sense.lemmaId
-    && bundle.quizItems.some((quiz) => quiz.surfaceFormId === surfaceFormId && quiz.senseId === senseId),
+    && preparedLevels.size === 8,
   );
 }
 

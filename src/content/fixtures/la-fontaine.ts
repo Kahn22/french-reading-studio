@@ -11,12 +11,14 @@ const corbeauUnits = [
   ["unt_corbeau_01", "Maître Corbeau, sur un arbre perché, tenait en son bec un fromage."],
   ["unt_corbeau_02", "Maître Renard, par l’odeur alléché, lui tint à peu près ce langage :"],
   ["unt_corbeau_03", "« Hé ! bonjour, Monsieur du Corbeau."],
-  ["unt_corbeau_04", "Que vous êtes joli ! que vous me semblez beau !"],
-  ["unt_corbeau_05", "Sans mentir, si votre ramage se rapporte à votre plumage, vous êtes le Phénix des hôtes de ces bois. »"],
-  ["unt_corbeau_06", "À ces mots le Corbeau ne se sent pas de joie ; et pour montrer sa belle voix, il ouvre un large bec, laisse tomber sa proie."],
-  ["unt_corbeau_07", "Le Renard s’en saisit, et dit : « Mon bon Monsieur, apprenez que tout flatteur vit aux dépens de celui qui l’écoute."],
-  ["unt_corbeau_08", "Cette leçon vaut bien un fromage, sans doute. »"],
-  ["unt_corbeau_09", "Le Corbeau, honteux et confus, jura, mais un peu tard, qu’on ne l’y prendrait plus."],
+  ["unt_corbeau_04", "Que vous êtes joli !"],
+  ["unt_corbeau_05", "Que vous me semblez beau !"],
+  ["unt_corbeau_06", "Sans mentir, si votre ramage se rapporte à votre plumage, vous êtes le Phénix des hôtes de ces bois. »"],
+  ["unt_corbeau_07", "À ces mots le Corbeau ne se sent pas de joie ;"],
+  ["unt_corbeau_08", "Et pour montrer sa belle voix, il ouvre un large bec, laisse tomber sa proie."],
+  ["unt_corbeau_09", "Le Renard s’en saisit, et dit : « Mon bon Monsieur, apprenez que tout flatteur vit aux dépens de celui qui l’écoute."],
+  ["unt_corbeau_10", "Cette leçon vaut bien un fromage, sans doute. »"],
+  ["unt_corbeau_11", "Le Corbeau, honteux et confus, jura, mais un peu tard, qu’on ne l’y prendrait plus."],
 ] as const;
 
 const lievreUnits = [
@@ -39,7 +41,23 @@ const lievreUnits = [
 ] as const;
 
 const canonical = (units: readonly (readonly [string, string])[]) => units.map(([, text]) => text).join("\n");
-const units = (workId: string, values: readonly (readonly [string, string])[]) => values.map(([id, french], i) => ({ id, workId, ordinal: i + 1, french }));
+const corbeauEnglish: Record<string, string> = {
+  unt_corbeau_01: "Master Crow, perched on a tree, held a piece of cheese in his beak.",
+  unt_corbeau_02: "Master Fox, attracted by the smell, spoke to him approximately as follows:",
+  unt_corbeau_03: "“Hey! Good day, Mr. Crow.”",
+  unt_corbeau_04: "How handsome you are!",
+  unt_corbeau_05: "How beautiful you appear to me!",
+  unt_corbeau_06: "Without lying, if your song matches your plumage, you are the Phoenix among the inhabitants of these woods.”",
+  unt_corbeau_07: "At these words, the Crow is beside himself with joy;",
+  unt_corbeau_08: "And, to show off his beautiful voice, he opens his wide beak and lets his prize fall.",
+  unt_corbeau_09: "The Fox grabs it and says: “My good sir, learn that every flatterer lives at the expense of the one who listens to him.”",
+  unt_corbeau_10: "This lesson is well worth a piece of cheese, without doubt.”",
+  unt_corbeau_11: "The Crow, ashamed and embarrassed, swore, though a little too late, that he would not be caught that way again.",
+};
+const units = (workId: string, values: readonly (readonly [string, string])[]) => values.map(([id, french], i) => ({
+  id, workId, ordinal: i + 1, french,
+  ...(corbeauEnglish[id] ? { english: corbeauEnglish[id] } : {}),
+}));
 
 export const lafountainFixtures: ContentBundle = {
   authors: [{ id: "aut_jean_de_la_fontaine", name: "Jean de La Fontaine", sortName: "La Fontaine, Jean de" }],
@@ -54,7 +72,7 @@ export const lafountainFixtures: ContentBundle = {
     { workId: "wrk_lievre_tortue", canonicalText: canonical(lievreUnits), provenance: { citation: "Jean de La Fontaine, Fables, Livre VI, fable X (1668)" }, typographyPolicy: "modern_conventional_typography_preserving_wording" },
   ],
   units: [...units("wrk_corbeau_renard", corbeauUnits), ...units("wrk_lievre_tortue", lievreUnits)],
-  lemmas: [], senses: [], surfaceForms: [], occurrences: [], expressions: [], notes: [], quizItems: [],
+  lemmas: [], senses: [], surfaceForms: [], occurrences: [], exclusions: [], expressions: [], notes: [], quizItems: [],
   readiness: [
     { workId: "wrk_corbeau_renard", thoughtUnitsComplete: true, occurrencesReviewed: false, unresolvedLearnerTokens: ["linguistic annotation pending"] },
     { workId: "wrk_lievre_tortue", thoughtUnitsComplete: true, occurrencesReviewed: false, unresolvedLearnerTokens: ["linguistic annotation pending"] },

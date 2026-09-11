@@ -52,9 +52,9 @@ describe("content foundation", () => {
     b.lemmas.push({ id: "lem_fromage", headword: "fromage", partOfSpeech: "noun" });
     b.senses.push({ id: "sns_fromage_food", lemmaId: "lem_fromage", gloss: "cheese", definition: "A food made from milk" });
     b.surfaceForms.push({ id: "srf_fromage", lemmaId: "lem_fromage", form: "fromage", normalized: "fromage" });
-    b.occurrences.push({ id: "occ_fromage_corbeau", workId: "wrk_corbeau_renard", unitId: "unt_corbeau_01", surfaceFormId: "srf_fromage", senseId: "sns_fromage_food", start: 55, end: 62 });
+    b.occurrences.push({ id: "occ_fromage_corbeau", workId: "wrk_corbeau_renard", unitId: "unt_corbeau_01", surfaceFormId: "srf_fromage", senseId: "sns_fromage_food", start: 58, end: 65 });
     expect(validateContentBundle(b).diagnostics.map((x) => x.code)).toContain("publication.missing_quiz");
-    b.quizItems.push({ id: "qiz_fromage_recognition", surfaceFormId: "srf_fromage", senseId: "sns_fromage_food", kind: "recognition", prompt: "What does fromage mean?", answer: "cheese" });
+    for (let level = 1; level <= 8; level++) b.quizItems.push({ id: `qiz_fromage_${level}`, surfaceFormId: "srf_fromage", senseId: "sns_fromage_food", masteryLevel: level, kind: "recognition", prompt: `Level ${level}: What does fromage mean?`, answer: "cheese" });
     expect(validateContentBundle(b)).toEqual({ ok: true, diagnostics: [] });
   });
 });

@@ -44,6 +44,11 @@ export const OccurrenceSchema = z.object({
   id: stableId("occ"), workId: stableId("wrk"), unitId: stableId("unt"), surfaceFormId: stableId("srf"),
   senseId: stableId("sns"), start: z.number().int().nonnegative(), end: z.number().int().positive(),
 });
+export const ExcludedOccurrenceSchema = z.object({
+  id: stableId("exc"), workId: stableId("wrk"), unitId: stableId("unt"),
+  start: z.number().int().nonnegative(), end: z.number().int().positive(), text: nonBlank,
+  reason: z.enum(["proper_noun", "editorial_artifact"]),
+});
 export const ExpressionSchema = z.object({
   id: stableId("exp"), workId: stableId("wrk"), unitId: stableId("unt"), text: nonBlank, gloss: nonBlank,
 });
@@ -53,6 +58,7 @@ export const NoteSchema = z.object({
 });
 export const QuizItemSchema = z.object({
   id: stableId("qiz"), surfaceFormId: stableId("srf"), senseId: stableId("sns"),
+  masteryLevel: z.number().int().min(1).max(8),
   kind: z.enum(["recognition", "production", "context"]), prompt: nonBlank, answer: nonBlank,
   distractors: z.array(nonBlank).optional(),
 });
@@ -64,7 +70,8 @@ export const ContentBundleSchema = z.object({
   authors: z.array(AuthorSchema), collections: z.array(CollectionSchema), books: z.array(BookSchema),
   works: z.array(WorkSchema), sources: z.array(SourceSchema), units: z.array(ThoughtUnitSchema),
   lemmas: z.array(LemmaSchema), senses: z.array(SenseSchema), surfaceForms: z.array(SurfaceFormSchema),
-  occurrences: z.array(OccurrenceSchema), expressions: z.array(ExpressionSchema), notes: z.array(NoteSchema),
+  occurrences: z.array(OccurrenceSchema), exclusions: z.array(ExcludedOccurrenceSchema),
+  expressions: z.array(ExpressionSchema), notes: z.array(NoteSchema),
   quizItems: z.array(QuizItemSchema), readiness: z.array(WorkReadinessSchema),
 });
 
