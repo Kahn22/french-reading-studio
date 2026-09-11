@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { advanceMastery, clampMastery, vocabularyKey } from "../src/app/state.js";
+import { clampMastery, orderedChoices, vocabularyKey } from "../src/app/state.js";
 
 describe("prototype learner state", () => {
   it("uses surface form plus sense as the mastery identity", () => {
@@ -7,6 +7,11 @@ describe("prototype learner state", () => {
   });
   it("keeps mastery inside the eight-level interface", () => {
     expect(clampMastery(0)).toBe(1); expect(clampMastery(9)).toBe(8);
-    expect(advanceMastery(7, true)).toBe(8); expect(advanceMastery(6, false)).toBe(1);
+  });
+  it("orders prepared choices deterministically without changing their content", () => {
+    const choices = ["correct", "second", "third", "fourth"];
+    expect(orderedChoices(choices, "qiz_example_01")).toEqual(orderedChoices(choices, "qiz_example_01"));
+    expect(new Set(orderedChoices(choices, "qiz_example_01"))).toEqual(new Set(choices));
+    expect(choices).toEqual(["correct", "second", "third", "fourth"]);
   });
 });

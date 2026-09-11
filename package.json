@@ -11,7 +11,7 @@
     "build:app": "vite build",
     "check": "npm run typecheck && npm test",
     "content:prepare": "npm run build && node dist/cli/prepare-fixtures.js",
-    "content:build": "npm run build && node dist/cli/prepare-fixtures.js && node dist/cli/build-corbeau.js",
+    "content:build": "npm run build && node dist/cli/prepare-fixtures.js && node dist/cli/plan-lievre.js && node dist/cli/build-corbeau.js && node dist/cli/build-lievre.js",
     "content:check": "npm run content:build && git diff --exit-code -- content",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --dir tests"

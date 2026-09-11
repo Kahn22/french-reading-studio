@@ -29,7 +29,6 @@ export const SourceSchema = z.object({
 });
 export const ThoughtUnitSchema = z.object({
   id: stableId("unt"), workId: stableId("wrk"), ordinal: z.number().int().positive(), french: nonBlank,
-  english: nonBlank.optional(),
 });
 export const LemmaSchema = z.object({
   id: stableId("lem"), headword: nonBlank, partOfSpeech: nonBlank,
@@ -56,12 +55,16 @@ export const NoteSchema = z.object({
   id: stableId("not"), workId: stableId("wrk"), unitId: stableId("unt").optional(), text: nonBlank,
   kind: z.enum(["source", "editorial", "historical", "language"]),
 });
-export const QuizItemSchema = z.object({
+const QuizIdentitySchema = z.object({
   id: stableId("qiz"), surfaceFormId: stableId("srf"), senseId: stableId("sns"),
-  masteryLevel: z.number().int().min(1).max(8),
-  kind: z.enum(["recognition", "production", "context"]), prompt: nonBlank, answer: nonBlank,
-  distractors: z.array(nonBlank).optional(),
 });
+const fourChoices = z.array(nonBlank).length(4);
+export const QuizItemSchema = z.discriminatedUnion("format", [
+  QuizIdentitySchema.extend({ masteryLevel: z.union([z.literal(1), z.literal(2), z.literal(3)]), format: z.literal("meaning_choice"), contextFrench: nonBlank, targetText: nonBlank, prompt: z.literal("Meaning"), choicesEnglish: fourChoices, correctAnswer: nonBlank }),
+  QuizIdentitySchema.extend({ masteryLevel: z.literal(4), format: z.literal("surface_completion"), contextFrench: nonBlank, choicesFrench: fourChoices, correctAnswer: nonBlank }),
+  QuizIdentitySchema.extend({ masteryLevel: z.literal(5), format: z.literal("comprehension_choice"), contextFrench: nonBlank, targetText: nonBlank, promptFrench: nonBlank, choicesEnglish: fourChoices, correctAnswer: nonBlank }),
+  QuizIdentitySchema.extend({ masteryLevel: z.union([z.literal(6), z.literal(7), z.literal(8)]), format: z.literal("target_identification"), contextFrench: nonBlank, promptFrench: nonBlank, choicesFrench: fourChoices, correctAnswer: nonBlank }),
+]);
 export const WorkReadinessSchema = z.object({
   workId: stableId("wrk"), thoughtUnitsComplete: z.boolean(), occurrencesReviewed: z.boolean(),
   unresolvedLearnerTokens: z.array(nonBlank),

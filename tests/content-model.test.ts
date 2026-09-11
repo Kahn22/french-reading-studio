@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { lafountainFixtures } from "../src/content/fixtures/la-fontaine.js";
 import { MASTERY_LEVELS, vocabularyIdentityKey } from "../src/domain/model.js";
 import { validateContentBundle } from "../src/domain/validate.js";
+import { preparedFromageQuizSet } from "./helpers/prepared-quizzes.js";
 
 const clone = () => structuredClone(lafountainFixtures);
 
@@ -54,7 +55,11 @@ describe("content foundation", () => {
     b.surfaceForms.push({ id: "srf_fromage", lemmaId: "lem_fromage", form: "fromage", normalized: "fromage" });
     b.occurrences.push({ id: "occ_fromage_corbeau", workId: "wrk_corbeau_renard", unitId: "unt_corbeau_01", surfaceFormId: "srf_fromage", senseId: "sns_fromage_food", start: 58, end: 65 });
     expect(validateContentBundle(b).diagnostics.map((x) => x.code)).toContain("publication.missing_quiz");
-    for (let level = 1; level <= 8; level++) b.quizItems.push({ id: `qiz_fromage_${level}`, surfaceFormId: "srf_fromage", senseId: "sns_fromage_food", masteryLevel: level, kind: "recognition", prompt: `Level ${level}: What does fromage mean?`, answer: "cheese" });
+    b.quizItems.push(...preparedFromageQuizSet);
     expect(validateContentBundle(b)).toEqual({ ok: true, diagnostics: [] });
+  });
+
+  it("stores no English sentence translations", () => {
+    expect(lafountainFixtures.units.every((unit) => !("english" in unit))).toBe(true);
   });
 });

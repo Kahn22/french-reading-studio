@@ -368,14 +368,25 @@
       "disposition": "pending"
     },
     {
-      "id": "tok_e54db34314c2b8a3471746d6",
+      "id": "tok_46ee72532e559339d42ae2f4",
       "workId": "wrk_lievre_tortue",
       "unitId": "unt_lievre_04",
       "start": 10,
-      "end": 19,
-      "text": "Êtes-vous",
-      "normalized": "êtes-vous",
+      "end": 14,
+      "text": "Êtes",
+      "normalized": "êtes",
       "capitalizationHint": "internal_uppercase",
+      "disposition": "pending"
+    },
+    {
+      "id": "tok_19fef8410b448cbd5224dce9",
+      "workId": "wrk_lievre_tortue",
+      "unitId": "unt_lievre_04",
+      "start": 15,
+      "end": 19,
+      "text": "vous",
+      "normalized": "vous",
+      "capitalizationHint": "lowercase",
       "disposition": "pending"
     },
     {
@@ -1347,13 +1358,24 @@
       "disposition": "pending"
     },
     {
-      "id": "tok_6fcceb2ddfda009613211e9e",
+      "id": "tok_3b0f5af7ef0fb8b559c23e4b",
       "workId": "wrk_lievre_tortue",
       "unitId": "unt_lievre_09",
       "start": 7,
+      "end": 10,
+      "text": "dis",
+      "normalized": "dis",
+      "capitalizationHint": "lowercase",
+      "disposition": "pending"
+    },
+    {
+      "id": "tok_427e61d3e4d90851ba54d48b",
+      "workId": "wrk_lievre_tortue",
+      "unitId": "unt_lievre_09",
+      "start": 11,
       "end": 13,
-      "text": "dis-je",
-      "normalized": "dis-je",
+      "text": "je",
+      "normalized": "je",
       "capitalizationHint": "lowercase",
       "disposition": "pending"
     },
@@ -2590,24 +2612,46 @@
       "disposition": "pending"
     },
     {
-      "id": "tok_31fd9cd0514c376b0516a3e8",
+      "id": "tok_9bf2319dc66394522251bc36",
       "workId": "wrk_lievre_tortue",
       "unitId": "unt_lievre_14",
       "start": 16,
-      "end": 27,
-      "text": "cria-t-elle",
-      "normalized": "cria-t-elle",
+      "end": 20,
+      "text": "cria",
+      "normalized": "cria",
       "capitalizationHint": "lowercase",
       "disposition": "pending"
     },
     {
-      "id": "tok_9677fa3240fcf6f5f4607380",
+      "id": "tok_d541c2437886279128cb7212",
+      "workId": "wrk_lievre_tortue",
+      "unitId": "unt_lievre_14",
+      "start": 23,
+      "end": 27,
+      "text": "elle",
+      "normalized": "elle",
+      "capitalizationHint": "lowercase",
+      "disposition": "pending"
+    },
+    {
+      "id": "tok_bc1524ebd7b3173f67688718",
       "workId": "wrk_lievre_tortue",
       "unitId": "unt_lievre_14",
       "start": 29,
+      "end": 34,
+      "text": "avais",
+      "normalized": "avais",
+      "capitalizationHint": "lowercase",
+      "disposition": "pending"
+    },
+    {
+      "id": "tok_69148fa08a78799b5ec99bfd",
+      "workId": "wrk_lievre_tortue",
+      "unitId": "unt_lievre_14",
+      "start": 35,
       "end": 37,
-      "text": "avais-je",
-      "normalized": "avais-je",
+      "text": "je",
+      "normalized": "je",
       "capitalizationHint": "lowercase",
       "disposition": "pending"
     },
@@ -2755,13 +2799,24 @@
       "disposition": "pending"
     },
     {
-      "id": "tok_90daf6e77f60d3e5cf471b4e",
+      "id": "tok_c28dc3c0b6a08bdbb5d94f76",
       "workId": "wrk_lievre_tortue",
       "unitId": "unt_lievre_16",
       "start": 24,
+      "end": 30,
+      "text": "serait",
+      "normalized": "serait",
+      "capitalizationHint": "lowercase",
+      "disposition": "pending"
+    },
+    {
+      "id": "tok_0a0f189cdf5d07356ab08cc2",
+      "workId": "wrk_lievre_tortue",
+      "unitId": "unt_lievre_16",
+      "start": 31,
       "end": 33,
-      "text": "serait-ce",
-      "normalized": "serait-ce",
+      "text": "ce",
+      "normalized": "ce",
       "capitalizationHint": "lowercase",
       "disposition": "pending"
     },

@@ -56,6 +56,18 @@ export function validateContentBundle(input: unknown): ValidationResult {
     if (!sense) reference(senses, quiz.senseId, `quizItems.${quiz.id}.senseId`, diagnostics);
     if (!surface) reference(surfaces, quiz.surfaceFormId, `quizItems.${quiz.id}.surfaceFormId`, diagnostics);
     if (sense && surface && sense.lemmaId !== surface.lemmaId) add(diagnostics, "vocabulary.lemma_mismatch", `quizItems.${quiz.id}`, "Surface form and sense must belong to the same lemma");
+    const choices = "choicesEnglish" in quiz ? quiz.choicesEnglish : quiz.choicesFrench;
+    if (new Set(choices).size !== 4) add(diagnostics, "quiz.duplicate_choice", `quizItems.${quiz.id}`, "Quiz choices must be four distinct answers");
+    if (choices.filter((choice) => choice === quiz.correctAnswer).length !== 1) add(diagnostics, "quiz.correct_answer", `quizItems.${quiz.id}`, "The correct answer must appear exactly once among the choices");
+    if (surface && "targetText" in quiz && normalize(quiz.targetText) !== surface.normalized) add(diagnostics, "quiz.target_mismatch", `quizItems.${quiz.id}`, "Highlighted target text must match the exact surface form");
+    if ("targetText" in quiz && !normalize(quiz.contextFrench).includes(normalize(quiz.targetText))) add(diagnostics, "quiz.target_missing", `quizItems.${quiz.id}`, "Prepared context must contain its declared target text");
+    if (quiz.format === "surface_completion" && !quiz.contextFrench.includes("___")) add(diagnostics, "quiz.blank_missing", `quizItems.${quiz.id}`, "Level 4 context must contain a visible blank");
+    if (quiz.format === "surface_completion" && surface && normalize(quiz.correctAnswer) !== surface.normalized) add(diagnostics, "quiz.answer_mismatch", `quizItems.${quiz.id}`, "Level 4 correct answer must be the exact target surface form");
+    if (quiz.format === "target_identification") {
+      if (surface && normalize(quiz.correctAnswer) !== surface.normalized) add(diagnostics, "quiz.answer_mismatch", `quizItems.${quiz.id}`, "Levels 6–8 must identify the exact target surface form");
+      if (quiz.choicesFrench.some((choice) => !normalize(quiz.contextFrench).includes(normalize(choice)))) add(diagnostics, "quiz.choice_not_in_context", `quizItems.${quiz.id}`, "Every Levels 6–8 choice must appear in the displayed French context");
+    }
+    if (b.units.some((unit) => normalize(unit.french) === normalize(quiz.contextFrench))) add(diagnostics, "quiz.source_reuse", `quizItems.${quiz.id}`, "Mastery quiz context must be genuinely different from source text");
   }
   for (const expression of b.expressions) {
     reference(works, expression.workId, `expressions.${expression.id}.workId`, diagnostics);
@@ -65,8 +77,6 @@ export function validateContentBundle(input: unknown): ValidationResult {
     const status = b.readiness.find((x) => x.workId === work.id);
     if (!status?.thoughtUnitsComplete || !status.occurrencesReviewed || status.unresolvedLearnerTokens.length) add(diagnostics, "publication.incomplete", `works.${work.id}`, "Learning-ready and published works require complete, reviewed content with no unresolved learner tokens");
     if (!b.sources.some((x) => x.workId === work.id) || !b.units.some((x) => x.workId === work.id)) add(diagnostics, "publication.missing_content", `works.${work.id}`, "Learning-ready and published works require source text and thought units");
-    if (b.units.filter((x) => x.workId === work.id).some((x) => !x.english)) add(diagnostics, "publication.missing_translation", `works.${work.id}`, "Every thought unit requires an English translation before learner use");
-    if (b.units.some((x) => x.workId === work.id && !x.english)) add(diagnostics, "publication.missing_translation", `works.${work.id}`, "Every thought unit requires a prepared English translation before learner use");
     const missingQuiz = b.occurrences.filter((x) => x.workId === work.id).some((x) => (quizLevels.get(vocabularyIdentityKey(x.surfaceFormId, x.senseId))?.size ?? 0) !== 8);
     if (missingQuiz) add(diagnostics, "publication.missing_quiz", `works.${work.id}`, "Every vocabulary identity must have prepared quiz content for mastery levels 1–8 before learner use");
   }

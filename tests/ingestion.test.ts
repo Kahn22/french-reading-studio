@@ -12,6 +12,15 @@ describe("editorial ingestion", () => {
     expect(tokens[0]?.normalized).toBe("lorsqu’");
   });
 
+  it("splits inverted verb-pronoun forms without treating linking t as vocabulary", () => {
+    const source = "Êtes-vous sage ? cria-t-elle, avais-je raison ? celle-ci répond";
+    const tokens = tokenizeFrench(source);
+    expect(tokens.map((token) => token.text)).toEqual([
+      "Êtes", "vous", "sage", "cria", "elle", "avais", "je", "raison", "celle-ci", "répond",
+    ]);
+    for (const token of tokens) expect(source.slice(token.start, token.end)).toBe(token.text);
+  });
+
   it("produces byte-identical manifests for identical input", () => {
     const first = serializeManifest(prepareIngestionManifest(lafountainFixtures, "wrk_lievre_tortue"));
     const second = serializeManifest(prepareIngestionManifest(structuredClone(lafountainFixtures), "wrk_lievre_tortue"));
