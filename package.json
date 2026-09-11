@@ -5,7 +5,10 @@
   "type": "module",
   "description": "Content foundation for learning French through public-domain literature.",
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "dev": "vite",
+    "build": "npm run build:domain && npm run build:app",
+    "build:domain": "tsc -p tsconfig.build.json",
+    "build:app": "vite build",
     "check": "npm run typecheck && npm test",
     "content:prepare": "npm run build && node dist/cli/prepare-fixtures.js",
     "content:build": "npm run build && node dist/cli/prepare-fixtures.js && node dist/cli/build-corbeau.js",
@@ -22,6 +25,7 @@
   "devDependencies": {
     "@types/node": "^24.3.1",
     "typescript": "^5.9.2",
+    "vite": "^7.1.5",
     "vitest": "^3.2.4"
   }
 }

@@ -15,6 +15,10 @@ npm run check
 npm run build
 ```
 
+Start the browser interface with `npm run dev`. The first prototype reads directly from the checked-in learning package for *Le Corbeau et le Renard*. It provides bilingual thought units, tappable learner vocabulary, lemma and sense details, and prepared quizzes for mastery levels 1–8.
+
+Prototype mastery is stored only in the current browser with `localStorage`. It remains separate from canonical content and is not yet an authenticated learner record. The production site is built into `site-dist/`; the GitHub Pages workflow validates and deploys that output without generating or rewriting quiz content at runtime.
+
 ## Content architecture
 
 The model separates five concerns:
