@@ -36,6 +36,15 @@ describe("learner scheduling", () => {
     });
   });
 
+  it("can make a newly encountered word immediately due for text reading", () => {
+    expect(createEncounter(at("2026-09-11T10:00:00.000Z"), true)).toEqual({
+      masteryLevel: 1,
+      nextDueAt: "2026-09-11T10:00:00.000Z",
+      obligation: "scheduled",
+      revision: 0,
+    });
+  });
+
   it("advances exactly one level after a correct scheduled review", () => {
     const state: VocabularyLearnerState = { masteryLevel: 4, nextDueAt: "2026-09-11T10:00:00.000Z", obligation: "scheduled", revision: 2 };
     const result = answerReview("srf:sns", state, claimReview("srf:sns", state), true, at("2026-09-11T12:00:00.000Z"));

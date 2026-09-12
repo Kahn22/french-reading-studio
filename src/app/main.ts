@@ -72,7 +72,7 @@ function initializeEncounters(workId: string, encounteredAt: Date) {
   for (const occurrence of occurrencesForWork(workId)) {
     const key = identityFor(occurrence);
     if (learnerState[key]) continue;
-    learnerState[key] = createEncounter(encounteredAt);
+    learnerState[key] = createEncounter(encounteredAt, true);
     changed = true;
   }
   if (changed) saveLearnerState();
