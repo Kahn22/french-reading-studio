@@ -56,10 +56,11 @@ export function clampMastery(value: number): MasteryLevel {
   return Math.max(1, Math.min(8, Math.trunc(value))) as MasteryLevel;
 }
 
-export function createEncounter(encounteredAt: Date): VocabularyLearnerState {
+/** Creates the first learner-state row for a vocabulary identity. */
+export function createEncounter(encounteredAt: Date, immediatelyDue = false): VocabularyLearnerState {
   return {
     masteryLevel: 1,
-    nextDueAt: dueAfterLevel(1, encounteredAt).toISOString(),
+    nextDueAt: (immediatelyDue ? encounteredAt : dueAfterLevel(1, encounteredAt)).toISOString(),
     obligation: "scheduled",
     revision: 0,
   };
