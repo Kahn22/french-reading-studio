@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { lafountainFixtures } from "../src/content/fixtures/la-fontaine.js";
 import { isVocabularyIdentityLearnerPublished, learnerVocabularyForWork } from "../src/domain/publication.js";
+import { preparedFromageQuizSet } from "./helpers/prepared-quizzes.js";
 
 function completedBundle() {
   const bundle = structuredClone(lafountainFixtures);
@@ -12,10 +13,7 @@ function completedBundle() {
 }
 
 function addPreparedQuizSet(bundle: ReturnType<typeof completedBundle>) {
-  for (let level = 1; level <= 8; level++) bundle.quizItems.push({
-    id: `qiz_fromage_${level}`, surfaceFormId: "srf_fromage", senseId: "sns_fromage_food",
-    masteryLevel: level, kind: "recognition", prompt: `Level ${level}: What does fromage mean?`, answer: "cheese",
-  });
+  bundle.quizItems.push(...preparedFromageQuizSet);
 }
 
 describe("automatic vocabulary publication", () => {

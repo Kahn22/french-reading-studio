@@ -41,22 +41,8 @@ const lievreUnits = [
 ] as const;
 
 const canonical = (units: readonly (readonly [string, string])[]) => units.map(([, text]) => text).join("\n");
-const corbeauEnglish: Record<string, string> = {
-  unt_corbeau_01: "Master Crow, perched on a tree, held a piece of cheese in his beak.",
-  unt_corbeau_02: "Master Fox, attracted by the smell, spoke to him approximately as follows:",
-  unt_corbeau_03: "“Hey! Good day, Mr. Crow.”",
-  unt_corbeau_04: "How handsome you are!",
-  unt_corbeau_05: "How beautiful you appear to me!",
-  unt_corbeau_06: "Without lying, if your song matches your plumage, you are the Phoenix among the inhabitants of these woods.”",
-  unt_corbeau_07: "At these words, the Crow is beside himself with joy;",
-  unt_corbeau_08: "And, to show off his beautiful voice, he opens his wide beak and lets his prize fall.",
-  unt_corbeau_09: "The Fox grabs it and says: “My good sir, learn that every flatterer lives at the expense of the one who listens to him.”",
-  unt_corbeau_10: "This lesson is well worth a piece of cheese, without doubt.”",
-  unt_corbeau_11: "The Crow, ashamed and embarrassed, swore, though a little too late, that he would not be caught that way again.",
-};
 const units = (workId: string, values: readonly (readonly [string, string])[]) => values.map(([id, french], i) => ({
   id, workId, ordinal: i + 1, french,
-  ...(corbeauEnglish[id] ? { english: corbeauEnglish[id] } : {}),
 }));
 
 export const lafountainFixtures: ContentBundle = {

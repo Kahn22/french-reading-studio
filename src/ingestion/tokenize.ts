@@ -2,6 +2,7 @@ export interface TokenSpan { start: number; end: number; text: string; normalize
 
 const wordPattern = /\p{L}+(?:[’']\p{L}+)*(?:-\p{L}+(?:[’']\p{L}+)*)*/gu;
 const elidedPrefixes = new Set(["c", "d", "j", "l", "m", "n", "s", "t", "qu", "jusqu", "lorsqu", "puisqu"]);
+const inversionPattern = /^(\p{L}+(?:[’']\p{L}+)*)-(?:t-)?(je|tu|il|elle|on|nous|vous|ils|elles|ce)$/iu;
 
 export function normalizeFrenchToken(value: string): string {
   return value.normalize("NFC").replaceAll("'", "’").toLocaleLowerCase("fr-FR");
@@ -12,6 +13,14 @@ export function tokenizeFrench(text: string): TokenSpan[] {
   for (const match of text.matchAll(wordPattern)) {
     const start = match.index;
     const token = match[0];
+    const inversion = token.match(inversionPattern);
+    if (inversion) {
+      const verb = inversion[1]!;
+      const subject = inversion[2]!;
+      push(spans, text, start, start + verb.length);
+      push(spans, text, start + token.length - subject.length, start + token.length);
+      continue;
+    }
     const apostrophe = Math.max(token.indexOf("’"), token.indexOf("'"));
     if (apostrophe > 0 && elidedPrefixes.has(normalizeFrenchToken(token.slice(0, apostrophe)))) {
       push(spans, text, start, start + apostrophe + 1);

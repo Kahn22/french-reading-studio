@@ -1,14 +1,9 @@
-export const MASTERY_MIN = 1;
-export const MASTERY_MAX = 8;
+export { clampMastery } from "../learner/scheduler.js";
+export { vocabularyIdentityKey as vocabularyKey } from "../domain/model.js";
 
-export type MasteryRecord = Record<string, number>;
-
-export const vocabularyKey = (surfaceFormId: string, senseId: string) => `${surfaceFormId}:${senseId}`;
-
-export function clampMastery(value: number): number {
-  return Math.max(MASTERY_MIN, Math.min(MASTERY_MAX, Math.trunc(value)));
-}
-
-export function advanceMastery(current: number, remembered: boolean): number {
-  return remembered ? clampMastery(current + 1) : MASTERY_MIN;
+/** Stable presentation order prevents the authored correct-first convention leaking into the UI. */
+export function orderedChoices(choices: string[], quizId: string): string[] {
+  if (choices.length < 2) return [...choices];
+  const rotation = [...quizId].reduce((total, character) => total + character.codePointAt(0)!, 0) % choices.length;
+  return [...choices.slice(rotation), ...choices.slice(0, rotation)];
 }
