@@ -7,7 +7,9 @@ export class ContentLoader {
 
   constructor(baseUrl: string, fetchImplementation: typeof fetch = fetch) {
     this.#baseUrl = baseUrl.replace(/\/?$/, "/");
-    this.#fetch = fetchImplementation;
+    // Window.fetch requires its browser receiver in some environments. Keep that
+    // receiver when the function is stored for later use by the loader.
+    this.#fetch = fetchImplementation.bind(globalThis);
   }
 
   manifest(): Promise<DeliveryManifest> {
