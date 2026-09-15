@@ -1,6 +1,6 @@
-import type { ContentBundle } from "../../domain/model.js";
+import type { LegacyQuizItem } from "./authoring.js";
 
-export const corbeauQuizBatch02: ContentBundle["quizItems"] = [
+export const corbeauQuizBatch02: LegacyQuizItem[] = [
   { id: "qiz_arbre_01", surfaceFormId: "srf_arbre", senseId: "sns_arbre_primary", masteryLevel: 1, format: "meaning_choice", contextFrench: "Un grand arbre protège la maison du soleil.", targetText: "arbre", prompt: "Meaning", choicesEnglish: ["tree", "wall", "roof", "road"], correctAnswer: "tree" },
   { id: "qiz_arbre_02", surfaceFormId: "srf_arbre", senseId: "sns_arbre_primary", masteryLevel: 2, format: "meaning_choice", contextFrench: "Cet arbre perd ses feuilles en automne.", targetText: "arbre", prompt: "Meaning", choicesEnglish: ["tree", "flower", "field", "river"], correctAnswer: "tree" },
   { id: "qiz_arbre_03", surfaceFormId: "srf_arbre", senseId: "sns_arbre_primary", masteryLevel: 3, format: "meaning_choice", contextFrench: "Les enfants jouent sous un arbre couvert de pommes.", targetText: "arbre", prompt: "Meaning", choicesEnglish: ["tree", "tent", "bridge", "cloud"], correctAnswer: "tree" },

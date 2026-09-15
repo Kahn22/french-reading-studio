@@ -5,6 +5,7 @@ const id = (prefix: string) => z.string().regex(new RegExp(`^${prefix}_[a-z0-9][
 export const ReviewDispositionSchema = z.enum([
   "pending",
   "vocabulary",
+  "expression",
   "proper_noun",
   "editorial_artifact",
 ]);
@@ -23,7 +24,7 @@ export const TokenCandidateSchema = z.object({
 
 export const IngestionManifestSchema = z.object({
   schemaVersion: z.literal(1),
-  algorithmVersion: z.literal("fr-tokenizer-v1"),
+  algorithmVersion: z.literal("fr-tokenizer-v2"),
   workId: id("wrk"),
   sourceDigest: z.string().regex(/^sha256:[a-f0-9]{64}$/),
   candidates: z.array(TokenCandidateSchema),
@@ -39,4 +40,5 @@ export interface ReviewDecision {
   lemmaId?: string;
   senseId?: string;
   surfaceFormId?: string;
+  expressionIdentityId?: string;
 }

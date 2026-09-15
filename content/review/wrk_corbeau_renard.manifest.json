@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "algorithmVersion": "fr-tokenizer-v1",
+  "algorithmVersion": "fr-tokenizer-v2",
   "workId": "wrk_corbeau_renard",
   "sourceDigest": "sha256:097d41cdbf83552b88004bdf6e0e77e07ebfcbb0e237d561ee1dbf9ecd71ab91",
   "candidates": [

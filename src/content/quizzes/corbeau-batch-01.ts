@@ -1,7 +1,7 @@
-import type { ContentBundle } from "../../domain/model.js";
+import type { LegacyQuizItem } from "./authoring.js";
 
 /** Editorially authored quiz content. These are stored questions, never runtime prompts. */
-export const corbeauQuizBatch01: ContentBundle["quizItems"] = [
+export const corbeauQuizBatch01: LegacyQuizItem[] = [
   {
     id: "qiz_maitre_title_01", surfaceFormId: "srf_maitre", senseId: "sns_maitre_primary",
     masteryLevel: 1, format: "meaning_choice", contextFrench: "L’apprenti répond : « Oui, Maître Bernard. »", targetText: "Maître", prompt: "Meaning",

@@ -8,22 +8,38 @@ export type AuthoredQuizSpec = {
   advanced: [[string,string,string[]],[string,string,string[]],[string,string,string[]]];
 };
 
+type QuizIdentity = { id: string; surfaceFormId: string; senseId: string; contextFrench: string; correctAnswer: string };
+export type LegacyQuizItem = QuizIdentity & { masteryLevel: 1|2|3; format: "meaning_choice"; targetText: string; prompt: "Meaning"; choicesEnglish: string[] }
+  | QuizIdentity & { masteryLevel: 4; format: "surface_completion"; choicesFrench: string[] }
+  | QuizIdentity & { masteryLevel: 5; format: "comprehension_choice"; targetText: string; promptFrench: string; choicesEnglish: string[] }
+  | QuizIdentity & { masteryLevel: 6|7|8; format: "target_identification"; promptFrench: string; choicesFrench: string[] };
+
+/** Deterministically migrates older eight-question sets without rewriting authored text. */
+export function compactQuizItems(items: readonly (LegacyQuizItem | ContentBundle["quizItems"][number])[]): ContentBundle["quizItems"] {
+  return items.flatMap((item) => {
+    if ("band" in item) return [item];
+    if (item.masteryLevel === 1 && item.format === "meaning_choice") return [{ ...item, id: item.id.replace(/_01$/, "_early"), band: "levels_1_3" as const, masteryLevel: undefined }].map(({ masteryLevel: _removed, ...quiz }) => quiz);
+    if (item.masteryLevel === 4 && item.format === "surface_completion") return [{ ...item, id: item.id.replace(/_04$/, "_intermediate"), band: "levels_4_5" as const, masteryLevel: undefined }].map(({ masteryLevel: _removed, ...quiz }) => quiz);
+    if (item.masteryLevel === 6 && item.format === "target_identification") return [{ ...item, id: item.id.replace(/_06$/, "_advanced"), band: "levels_6_8" as const, masteryLevel: undefined }].map(({ masteryLevel: _removed, ...quiz }) => quiz);
+    return [];
+  });
+}
+
 export function authoredSet(s: AuthoredQuizSpec): ContentBundle["quizItems"] {
-  const contexts = [...s.early.map(x => x[0]), s.blank[0], s.comprehension[0], ...s.advanced.map(x => x[0])];
-  if (new Set(contexts).size !== 8) throw new Error(`${s.key}: all eight contexts must be distinct`);
-  const first = s.early.map(([contextFrench, distractors], index) => ({ id:`qiz_${s.key}_0${index+1}`, surfaceFormId:s.surfaceFormId, senseId:s.senseId, masteryLevel:(index+1) as 1|2|3, format:"meaning_choice" as const, contextFrench, targetText:s.target, prompt:"Meaning" as const, choicesEnglish:[s.meaning,...distractors], correctAnswer:s.meaning }));
-  const later = s.advanced.map(([contextFrench,promptFrench,choicesFrench], index) => ({ id:`qiz_${s.key}_0${index+6}`, surfaceFormId:s.surfaceFormId, senseId:s.senseId, masteryLevel:(index+6) as 6|7|8, format:"target_identification" as const, contextFrench, promptFrench, choicesFrench, correctAnswer:choicesFrench.find(choice => choice.toLocaleLowerCase("fr-FR") === s.target.toLocaleLowerCase("fr-FR")) ?? s.target }));
-  return [...first,
-    { id:`qiz_${s.key}_04`,surfaceFormId:s.surfaceFormId,senseId:s.senseId,masteryLevel:4,format:"surface_completion",contextFrench:s.blank[0],choicesFrench:s.blank[1],correctAnswer:s.target },
-    { id:`qiz_${s.key}_05`,surfaceFormId:s.surfaceFormId,senseId:s.senseId,masteryLevel:5,format:"comprehension_choice",contextFrench:s.comprehension[0],targetText:s.target,promptFrench:s.comprehension[1],choicesEnglish:s.comprehension[2],correctAnswer:s.comprehension[3] },
-    ...later];
+  const [earlyContext, earlyDistractors] = s.early[0];
+  const [advancedContext, advancedPrompt, advancedChoices] = s.advanced[0];
+  return [
+    { id:`qiz_${s.key}_early`, surfaceFormId:s.surfaceFormId, senseId:s.senseId, band:"levels_1_3", format:"meaning_choice", contextFrench:earlyContext, targetText:s.target, prompt:"Meaning", choicesEnglish:[s.meaning,...earlyDistractors], correctAnswer:s.meaning },
+    { id:`qiz_${s.key}_intermediate`, surfaceFormId:s.surfaceFormId, senseId:s.senseId, band:"levels_4_5", format:"surface_completion", contextFrench:s.blank[0], choicesFrench:s.blank[1], correctAnswer:s.target },
+    { id:`qiz_${s.key}_advanced`, surfaceFormId:s.surfaceFormId, senseId:s.senseId, band:"levels_6_8", format:"target_identification", contextFrench:advancedContext, promptFrench:advancedPrompt, choicesFrench:advancedChoices, correctAnswer:advancedChoices.find(choice => choice.toLocaleLowerCase("fr-FR") === s.target.toLocaleLowerCase("fr-FR")) ?? s.target },
+  ];
 }
 
 export function quizCoverageForWork(bundle: ContentBundle, workId: string) {
   const required = new Set(bundle.occurrences.filter(x => x.workId === workId).map(x => vocabularyIdentityKey(x.surfaceFormId,x.senseId)));
-  const levels = new Map<string,Set<number>>();
-  for (const q of bundle.quizItems) { const key=vocabularyIdentityKey(q.surfaceFormId,q.senseId); const set=levels.get(key)??new Set<number>(); set.add(q.masteryLevel); levels.set(key,set); }
-  const completed=[...required].filter(key => levels.get(key)?.size===8).sort();
-  const missing=[...required].filter(key => levels.get(key)?.size!==8).sort();
+  const bands = new Map<string,Set<string>>();
+  for (const q of bundle.quizItems) { const key=vocabularyIdentityKey(q.surfaceFormId,q.senseId); const set=bands.get(key)??new Set<string>(); set.add(q.band); bands.set(key,set); }
+  const completed=[...required].filter(key => bands.get(key)?.size===3).sort();
+  const missing=[...required].filter(key => bands.get(key)?.size!==3).sort();
   return { requiredIdentities:required.size, completedIdentities:completed.length, preparedItems:bundle.quizItems.length, completed, missing };
 }

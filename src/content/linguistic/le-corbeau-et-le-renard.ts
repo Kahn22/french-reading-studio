@@ -1,6 +1,7 @@
 import { lafountainFixtures } from "../fixtures/la-fontaine.js";
 import type { ContentBundle } from "../../domain/model.js";
 import { prepareIngestionManifest } from "../../ingestion/prepare.js";
+import { compactQuizItems } from "../quizzes/authoring.js";
 import { corbeauQuizBatch01 } from "../quizzes/corbeau-batch-01.js";
 import { corbeauQuizBatch02 } from "../quizzes/corbeau-batch-02.js";
 import { corbeauQuizBatch03 } from "../quizzes/corbeau-batch-03.js";
@@ -162,7 +163,7 @@ export function createCorbeauLearningBundle(): ContentBundle {
     { id: "sns_en_it", lemmaId: "lem_en", gloss: "it; of it", definition: "Pronoun replacing a complement introduced by de or referring back to something mentioned" },
     { id: "sns_que_exclamative", lemmaId: "lem_que", gloss: "how", definition: "Introduces an exclamation about degree or intensity" },
     { id: "sns_que_conjunction", lemmaId: "lem_que", gloss: "that", definition: "Introduces a subordinate clause" },
-    { id: "sns_le_object", lemmaId: "lem_le", gloss: "him; her; it", definition: "Elided direct-object pronoun replacing a previously mentioned person or thing" },
+    { id: "sns_le_object", lemmaId: "lem_le", gloss: "him; her; it; them", definition: "Direct-object pronoun replacing one or more previously mentioned people or things" },
   );
   const lemmaHeadwords: Record<string, string> = {
     lem_du: "de + le",
@@ -212,7 +213,7 @@ export function createCorbeauLearningBundle(): ContentBundle {
     { id: "exp_sans_doute", workId: "wrk_corbeau_renard", unitId: "unt_corbeau_10", text: "sans doute", gloss: "without doubt; certainly" },
     { id: "exp_ne_plus", workId: "wrk_corbeau_renard", unitId: "unt_corbeau_11", text: "ne … plus", gloss: "no longer; not anymore" },
   ];
-  bundle.quizItems = structuredClone([...corbeauQuizBatch01, ...corbeauQuizBatch02, ...corbeauQuizBatch03, ...corbeauQuizBatch04, ...corbeauQuizBatch05, ...corbeauQuizBatch06, ...corbeauQuizBatch07, ...corbeauQuizBatch08, ...corbeauQuizBatch09, ...corbeauQuizBatch10, ...corbeauQuizBatch11, ...corbeauQuizBatch12, ...corbeauQuizBatch13, ...corbeauQuizBatch14, ...corbeauQuizBatch15, ...corbeauQuizBatch16, ...corbeauQuizBatch17, ...corbeauQuizBatch18, ...corbeauQuizBatch19, ...corbeauQuizBatch20, ...corbeauQuizBatch21, ...corbeauQuizBatch22, ...corbeauQuizBatch23, ...corbeauQuizBatch24, ...corbeauQuizBatch25, ...corbeauQuizBatch26, ...corbeauQuizBatch27, ...corbeauQuizBatch28, ...corbeauQuizBatch29, ...corbeauQuizBatch30, ...corbeauQuizBatch31, ...corbeauQuizBatch32, ...corbeauQuizBatch33, ...corbeauQuizBatch34]);
+  bundle.quizItems = structuredClone(compactQuizItems([...corbeauQuizBatch01, ...corbeauQuizBatch02, ...corbeauQuizBatch03, ...corbeauQuizBatch04, ...corbeauQuizBatch05, ...corbeauQuizBatch06, ...corbeauQuizBatch07, ...corbeauQuizBatch08, ...corbeauQuizBatch09, ...corbeauQuizBatch10, ...corbeauQuizBatch11, ...corbeauQuizBatch12, ...corbeauQuizBatch13, ...corbeauQuizBatch14, ...corbeauQuizBatch15, ...corbeauQuizBatch16, ...corbeauQuizBatch17, ...corbeauQuizBatch18, ...corbeauQuizBatch19, ...corbeauQuizBatch20, ...corbeauQuizBatch21, ...corbeauQuizBatch22, ...corbeauQuizBatch23, ...corbeauQuizBatch24, ...corbeauQuizBatch25, ...corbeauQuizBatch26, ...corbeauQuizBatch27, ...corbeauQuizBatch28, ...corbeauQuizBatch29, ...corbeauQuizBatch30, ...corbeauQuizBatch31, ...corbeauQuizBatch32, ...corbeauQuizBatch33, ...corbeauQuizBatch34]));
   bundle.works.find((work) => work.id === "wrk_corbeau_renard")!.publicationState = "learning_ready";
   bundle.readiness.find((item) => item.workId === "wrk_corbeau_renard")!.occurrencesReviewed = true;
   bundle.readiness.find((item) => item.workId === "wrk_corbeau_renard")!.unresolvedLearnerTokens = [];

@@ -25,7 +25,7 @@ export function prepareIngestionManifest(bundle: ContentBundle, workId: string):
 
   return IngestionManifestSchema.parse({
     schemaVersion: 1,
-    algorithmVersion: "fr-tokenizer-v1",
+    algorithmVersion: "fr-tokenizer-v2",
     workId,
     sourceDigest: `sha256:${digest(source.canonicalText)}`,
     candidates,
@@ -51,6 +51,9 @@ export function assertReviewComplete(manifest: IngestionManifest, decisions: rea
   for (const candidate of reviewed.candidates.filter((item) => item.disposition === "vocabulary")) {
     const decision = decisionById.get(candidate.id);
     if (!decision?.lemmaId || !decision.senseId || !decision.surfaceFormId) throw new Error(`Vocabulary candidate ${candidate.id} lacks lemma, sense, or surface-form identity`);
+  }
+  for (const candidate of reviewed.candidates.filter((item) => item.disposition === "expression")) {
+    if (!decisionById.get(candidate.id)?.expressionIdentityId) throw new Error(`Expression candidate ${candidate.id} lacks expression identity`);
   }
 }
 

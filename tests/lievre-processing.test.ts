@@ -98,7 +98,7 @@ describe("Le Lièvre et la Tortue lexical review plan", () => {
       thoughtUnitsComplete: true, occurrencesReviewed: true, unresolvedLearnerTokens: [],
     });
     expect(quizCoverageForWork(bundle, "wrk_lievre_tortue")).toMatchObject({
-      requiredIdentities: 174, completedIdentities: 174, preparedItems: 1912,
+      requiredIdentities: 174, completedIdentities: 174, preparedItems: 717,
       missing: [],
     });
     expect(learnerVocabularyForWork(bundle, "wrk_lievre_tortue")).toHaveLength(174);

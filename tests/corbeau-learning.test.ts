@@ -22,7 +22,7 @@ describe("Le Corbeau et le Renard learning package", () => {
   });
   it("stores every authored quiz set and exposes all complete identities", () => {
     expect(corbeauLearningBundle.surfaceForms).toHaveLength(95);
-    expect(corbeauLearningBundle.quizItems).toHaveLength(784);
+    expect(corbeauLearningBundle.quizItems).toHaveLength(294);
     const completed = [
       ["srf_maitre", "sns_maitre_primary"],
       ["srf_sur", "sns_sur_primary"],
@@ -125,8 +125,8 @@ describe("Le Corbeau et le Renard learning package", () => {
     ];
     for (const [surfaceFormId, senseId] of completed) {
       const items = corbeauLearningBundle.quizItems.filter((quiz) => quiz.surfaceFormId === surfaceFormId && quiz.senseId === senseId);
-      expect(items.map((quiz) => quiz.masteryLevel)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
-      expect(new Set(items.map((quiz) => quiz.contextFrench)).size).toBe(8);
+      expect(items.map((quiz) => quiz.band)).toEqual(["levels_1_3", "levels_4_5", "levels_6_8"]);
+      expect(new Set(items.map((quiz) => quiz.contextFrench)).size).toBe(3);
     }
     const learnerVocabulary = learnerVocabularyForWork(corbeauLearningBundle, "wrk_corbeau_renard");
     expect(learnerVocabulary).toHaveLength(98);
@@ -164,7 +164,7 @@ describe("Le Corbeau et le Renard learning package", () => {
     const coverage = quizCoverageForWork(corbeauLearningBundle, "wrk_corbeau_renard");
     expect(coverage.requiredIdentities).toBe(98);
     expect(coverage.completedIdentities).toBe(98);
-    expect(coverage.preparedItems).toBe(784);
+    expect(coverage.preparedItems).toBe(294);
     expect(coverage.missing).toHaveLength(0);
   });
 });

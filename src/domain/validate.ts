@@ -17,6 +17,18 @@ export function validateContentBundle(input: unknown): ValidationResult {
   uniqueIds(b, diagnostics);
   const authors = ids(b.authors), collections = ids(b.collections), books = ids(b.books), works = ids(b.works);
   const units = ids(b.units), lemmas = ids(b.lemmas), senses = ids(b.senses), surfaces = ids(b.surfaceForms);
+  const unitById = new Map(b.units.map((unit) => [unit.id, unit]));
+  const normalizedUnitTexts = b.units.map((unit) => normalize(unit.french));
+  const normalizedUnitTextSet = new Set(normalizedUnitTexts);
+  const readinessByWork = new Map(b.readiness.map((status) => [status.workId, status]));
+  const worksWithSources = new Set(b.sources.map((source) => source.workId));
+  const worksWithUnits = new Set(b.units.map((unit) => unit.workId));
+  const occurrencesByWork = new Map<string, typeof b.occurrences>();
+  for (const occurrence of b.occurrences) {
+    const occurrences = occurrencesByWork.get(occurrence.workId) ?? [];
+    occurrences.push(occurrence);
+    occurrencesByWork.set(occurrence.workId, occurrences);
+  }
   b.collections.forEach((x) => reference(authors, x.authorId, `collections.${x.id}.authorId`, diagnostics));
   b.books.forEach((x) => reference(collections, x.collectionId, `books.${x.id}.collectionId`, diagnostics));
   b.works.forEach((x) => reference(books, x.bookId, `works.${x.id}.bookId`, diagnostics));
@@ -26,16 +38,16 @@ export function validateContentBundle(input: unknown): ValidationResult {
   b.surfaceForms.forEach((x) => reference(lemmas, x.lemmaId, `surfaceForms.${x.id}.lemmaId`, diagnostics));
   const senseById = new Map(b.senses.map((x) => [x.id, x]));
   const surfaceById = new Map(b.surfaceForms.map((x) => [x.id, x]));
-  const quizLevels = new Map<string, Set<number>>();
+  const quizBands = new Map<string, Set<string>>();
   for (const quiz of b.quizItems) {
     const key = vocabularyIdentityKey(quiz.surfaceFormId, quiz.senseId);
-    const levels = quizLevels.get(key) ?? new Set<number>();
-    levels.add(quiz.masteryLevel); quizLevels.set(key, levels);
+    const bands = quizBands.get(key) ?? new Set<string>();
+    bands.add(quiz.band); quizBands.set(key, bands);
   }
   for (const occurrence of b.occurrences) {
     reference(works, occurrence.workId, `occurrences.${occurrence.id}.workId`, diagnostics);
     reference(units, occurrence.unitId, `occurrences.${occurrence.id}.unitId`, diagnostics);
-    const unit = b.units.find((x) => x.id === occurrence.unitId);
+    const unit = unitById.get(occurrence.unitId);
     if (unit && unit.workId !== occurrence.workId) add(diagnostics, "occurrence.work_mismatch", `occurrences.${occurrence.id}`, "Occurrence and unit must belong to the same work");
     const sense = senseById.get(occurrence.senseId), surface = surfaceById.get(occurrence.surfaceFormId);
     if (!sense) reference(senses, occurrence.senseId, `occurrences.${occurrence.id}.senseId`, diagnostics);
@@ -47,7 +59,7 @@ export function validateContentBundle(input: unknown): ValidationResult {
   for (const exclusion of b.exclusions) {
     reference(works, exclusion.workId, `exclusions.${exclusion.id}.workId`, diagnostics);
     reference(units, exclusion.unitId, `exclusions.${exclusion.id}.unitId`, diagnostics);
-    const unit = b.units.find((x) => x.id === exclusion.unitId);
+    const unit = unitById.get(exclusion.unitId);
     if (unit && unit.workId !== exclusion.workId) add(diagnostics, "exclusion.work_mismatch", `exclusions.${exclusion.id}`, "Exclusion and unit must belong to the same work");
     if (unit && (exclusion.end > unit.french.length || exclusion.start >= exclusion.end || unit.french.slice(exclusion.start, exclusion.end) !== exclusion.text)) add(diagnostics, "exclusion.invalid_span", `exclusions.${exclusion.id}`, "Exclusion text and span must match its thought unit");
   }
@@ -61,24 +73,34 @@ export function validateContentBundle(input: unknown): ValidationResult {
     if (choices.filter((choice) => choice === quiz.correctAnswer).length !== 1) add(diagnostics, "quiz.correct_answer", `quizItems.${quiz.id}`, "The correct answer must appear exactly once among the choices");
     if (surface && "targetText" in quiz && normalize(quiz.targetText) !== surface.normalized) add(diagnostics, "quiz.target_mismatch", `quizItems.${quiz.id}`, "Highlighted target text must match the exact surface form");
     if ("targetText" in quiz && !normalize(quiz.contextFrench).includes(normalize(quiz.targetText))) add(diagnostics, "quiz.target_missing", `quizItems.${quiz.id}`, "Prepared context must contain its declared target text");
-    if (quiz.format === "surface_completion" && !quiz.contextFrench.includes("___")) add(diagnostics, "quiz.blank_missing", `quizItems.${quiz.id}`, "Level 4 context must contain a visible blank");
-    if (quiz.format === "surface_completion" && surface && normalize(quiz.correctAnswer) !== surface.normalized) add(diagnostics, "quiz.answer_mismatch", `quizItems.${quiz.id}`, "Level 4 correct answer must be the exact target surface form");
+    if (quiz.format === "surface_completion" && !quiz.contextFrench.includes("___")) add(diagnostics, "quiz.blank_missing", `quizItems.${quiz.id}`, "Levels 4–5 context must contain a visible blank");
+    if (quiz.format === "surface_completion" && surface && normalize(quiz.correctAnswer) !== surface.normalized) add(diagnostics, "quiz.answer_mismatch", `quizItems.${quiz.id}`, "Levels 4–5 correct answer must be the exact target surface form");
     if (quiz.format === "target_identification") {
       if (surface && normalize(quiz.correctAnswer) !== surface.normalized) add(diagnostics, "quiz.answer_mismatch", `quizItems.${quiz.id}`, "Levels 6–8 must identify the exact target surface form");
       if (quiz.choicesFrench.some((choice) => !normalize(quiz.contextFrench).includes(normalize(choice)))) add(diagnostics, "quiz.choice_not_in_context", `quizItems.${quiz.id}`, "Every Levels 6–8 choice must appear in the displayed French context");
     }
-    if (b.units.some((unit) => normalize(unit.french) === normalize(quiz.contextFrench))) add(diagnostics, "quiz.source_reuse", `quizItems.${quiz.id}`, "Mastery quiz context must be genuinely different from source text");
+    if (normalizedUnitTextSet.has(normalize(quiz.contextFrench))) add(diagnostics, "quiz.source_reuse", `quizItems.${quiz.id}`, "Mastery quiz context must be genuinely different from source text");
+    if (quiz.format === "surface_completion") {
+      const fragments = normalize(quiz.contextFrench).split(/_{3,}/);
+      if (fragments.length === 2) {
+        const [before, after] = fragments as [string, string];
+        if (normalizedUnitTexts.some((source) => {
+          return source.startsWith(before) && source.endsWith(after) && source.length > before.length + after.length;
+        })) add(diagnostics, "quiz.source_derived_blank", `quizItems.${quiz.id}`, "A source sentence with its target blanked is not a new quiz context");
+      }
+    }
+    if (quiz.contextFrench.includes("Les formes proposées sont «")) add(diagnostics, "quiz.synthetic_choice_list", `quizItems.${quiz.id}`, "Quiz choices must be used in a natural context, not appended as an option list");
   }
   for (const expression of b.expressions) {
     reference(works, expression.workId, `expressions.${expression.id}.workId`, diagnostics);
     reference(units, expression.unitId, `expressions.${expression.id}.unitId`, diagnostics);
   }
   for (const work of b.works.filter((x) => readyStates.has(x.publicationState))) {
-    const status = b.readiness.find((x) => x.workId === work.id);
+    const status = readinessByWork.get(work.id);
     if (!status?.thoughtUnitsComplete || !status.occurrencesReviewed || status.unresolvedLearnerTokens.length) add(diagnostics, "publication.incomplete", `works.${work.id}`, "Learning-ready and published works require complete, reviewed content with no unresolved learner tokens");
-    if (!b.sources.some((x) => x.workId === work.id) || !b.units.some((x) => x.workId === work.id)) add(diagnostics, "publication.missing_content", `works.${work.id}`, "Learning-ready and published works require source text and thought units");
-    const missingQuiz = b.occurrences.filter((x) => x.workId === work.id).some((x) => (quizLevels.get(vocabularyIdentityKey(x.surfaceFormId, x.senseId))?.size ?? 0) !== 8);
-    if (missingQuiz) add(diagnostics, "publication.missing_quiz", `works.${work.id}`, "Every vocabulary identity must have prepared quiz content for mastery levels 1–8 before learner use");
+    if (!worksWithSources.has(work.id) || !worksWithUnits.has(work.id)) add(diagnostics, "publication.missing_content", `works.${work.id}`, "Learning-ready and published works require source text and thought units");
+    const missingQuiz = (occurrencesByWork.get(work.id) ?? []).some((x) => (quizBands.get(vocabularyIdentityKey(x.surfaceFormId, x.senseId))?.size ?? 0) !== 3);
+    if (missingQuiz) add(diagnostics, "publication.missing_quiz", `works.${work.id}`, "Every vocabulary identity must have prepared quiz content covering Levels 1–3, 4–5, and 6–8 before learner use");
   }
   validateOrdinals(b.books, "collectionId", diagnostics);
   validateOrdinals(b.works, "bookId", diagnostics);

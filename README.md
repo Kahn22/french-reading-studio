@@ -2,6 +2,8 @@
 
 French Reading Studio is a French reading and spaced-repetition learning application built around canonical public-domain literature. This repository contains a framework-neutral TypeScript content model, deterministic validation, reference fixtures, and a lightweight browser learner interface. It intentionally does not yet choose authentication, a database, or a UI framework.
 
+The learner catalog contains Émile Zola’s complete *J’Accuse…!* divided into 199 ordered sentence/thought units. Its linguistic review, three prepared quiz bands, expression catalog, and publication validation are complete, so the locally built learner application exposes it as a `published` work.
+
 ## Requirements
 
 - Node.js 22 or newer
@@ -15,13 +17,13 @@ npm run check
 npm run build
 ```
 
-Start the browser interface with `npm run dev`. The public homepage contains the future account entry points and an explicit learner-preview button; it does not collect credentials. The learner home lists only publication-safe available texts and provides a global due-review button. Opening a text presents its canonical French without English sentence translations, creates first encounters for its learner vocabulary, and provides a text-specific due-review button. Selecting an occurrence opens its reviewed lemma, contextual sense, mastery level, and next review time.
+Start the browser interface with `npm run dev`. The public homepage contains the future account entry points and an explicit learner-preview button; it does not collect credentials. The learner home organizes publication-safe texts into Available, Reading, and Completed shelves. A learner may mark any number of texts as Reading; only Reading texts can be opened, while both Reading and Completed texts contribute questions to general and text-specific review. Moving a text back to Available preserves mastery and due timestamps but removes its unique items from active review. Marking a text Completed preserves both progress and continuing quiz eligibility; “Read again” restores reading access. Opening a Reading text presents its canonical French without English sentence translations. A vocabulary identity or expression becomes encountered only when the learner views the section containing it; opening the work or preloading a later section does not encounter unseen material. Vocabulary below mastery Level 4 is underlined in the reader, while vocabulary at Levels 4–8 remains tappable without an underline. Selecting an occurrence opens its reviewed lemma, contextual sense, mastery level, and next review time.
 
 The account contract and Learner/Admin/Owner authorization boundaries are vendor-neutral. Real registration, verification, sign-in, recovery, secure server sessions, and multi-device persistence deliberately remain unconnected until a hosting and authentication architecture is approved. The preview session is labeled clearly and uses session storage only as a disposable navigation convenience; it never stores credentials or pretends to provide security.
 
 The production site is built into `site-dist/`; the GitHub Pages workflow validates and deploys that output without generating or rewriting quiz content at runtime.
 
-The detailed product and editorial rules are recorded in [`docs/PRODUCT_SPEC.md`](docs/PRODUCT_SPEC.md). English sentence/thought-unit translations are intentionally excluded. English vocabulary meanings and answer choices remain only where Levels 1–5 require them.
+The detailed product and editorial rules are recorded in [`docs/PRODUCT_SPEC.md`](docs/PRODUCT_SPEC.md), and the ordered production queue is recorded in [`docs/CONTENT_ROADMAP.md`](docs/CONTENT_ROADMAP.md). English sentence/thought-unit translations are intentionally excluded. English vocabulary meanings and answer choices remain only where Levels 1–5 require them.
 
 ## Content architecture
 
@@ -53,7 +55,9 @@ Works progress monotonically through:
 4. `learning_ready`
 5. `published`
 
-At `learning_ready` and `published`, validation requires complete thought units, a complete occurrence review, no unresolved learner tokens, valid cross-references, and prepared quiz items for all eight mastery levels for every vocabulary identity used by the work. Publication consumers should only query those two states.
+At `learning_ready` and `published`, validation requires complete thought units, a complete occurrence review, no unresolved learner tokens, valid cross-references, and three prepared quiz bands covering mastery Levels 1–3, 4–5, and 6–8 for every vocabulary identity used by the work. Publication consumers should only query those two states.
+
+`runAutonomousPublicationPipeline` executes the versioned, fail-closed workflow. Every run emits source, structure, lexical-manifest, and eventual published-bundle checksums plus a machine-readable report. Linguistic and quiz material is authored by Codex as a repository-owned offline artifact, then checked independently by deterministic validators. If that complete artifact is absent, uncertain, or invalid, the work remains hidden in `processing` with a precise diagnostic; no external AI service and no runtime learner-content generation are used.
 
 The fixtures preserve La Fontaine's wording with conventional modern typography. They are deliberately `source_structured`: the complete source and initial thought segmentation are present, but linguistic annotation and quiz preparation still require editorial review.
 
@@ -67,7 +71,9 @@ src/
   domain/                 Schemas, types, validation, deterministic helpers
   ingestion/              Tokenization and review-manifest preparation
   learner/                Mastery state, timestamps, and deterministic scheduling
+  pipeline/               Autonomous stage orchestration and provider-neutral contracts
 content/review/            Generated manifests intended for human review
+content/pipeline/          Versioned lexical manifests and machine-readable run reports
 docs/                      Authoritative product and editorial specification
 tests/                    Model and invariant tests
 ```
@@ -105,7 +111,9 @@ npm run content:build
 npm run content:check
 ```
 
-The first processed package is `content/learning/le-corbeau-et-le-renard.json`. It includes reviewed learner tokens (not a reduced “core vocabulary” list), eleven French thought units, expressions, indexed occurrences, and 784 prepared quiz items. All 98 `Surface form + Sense` identities—including the literary, figurative use of *Phénix*—have compliant Levels 1–8 content, so the package is `learning_ready` and its vocabulary is learner-visible as one complete set.
+The first processed package is `content/learning/le-corbeau-et-le-renard.json`. It includes reviewed learner tokens (not a reduced “core vocabulary” list), eleven French thought units, expressions, indexed occurrences, and 294 prepared quiz items. All 98 `Surface form + Sense` identities—including the literary, figurative use of *Phénix*—have three compliant quiz bands covering Levels 1–8, so the package is `learning_ready` and its vocabulary is learner-visible as one complete set.
+
+Learner delivery is designed around one thought unit per reading section and ten vocabulary identities per quiz payload. The next reading section may be prefetched, and another quiz payload is prefetched when three questions remain. These payloads contain only prepared, validated content; the browser never generates or rewrites questions.
 
 ## Learner scheduling
 
@@ -117,11 +125,14 @@ The authoritative browser record contains only the current mastery level, one `n
 
 ## First collection
 
-The canonical catalog reserves Jean de La Fontaine's *Fables*, Books I–XII, with ordering preserved. The first pipeline fixtures are:
+The canonical catalog organizes individually selected works from Jean de La Fontaine's *Fables*, with their book and fable order preserved. The current pipeline fixtures are:
 
+- Livre I, Fable I — *La Cigale et la Fourmi*
 - Livre I, Fable II — *Le Corbeau et le Renard*
+- Livre I, Fable X — *Le Loup et l’Agneau*
+- Livre II, Fable XI — *Le Lion et le Rat*
 - Livre VI, Fable X — *Le Lièvre et la Tortue* (complete, unadapted text)
 
 ## Next boundary
 
-After browser and iPhone QA of the prepared-quiz and scheduling interface, the next content implementation should process the complete *Le Lièvre et la Tortue* fixture through the same reviewed linguistic and quiz pipeline. Authentication and server-side multi-device learner persistence remain separate future services designed against the existing domain interfaces.
+The next release boundary is browser and iPhone QA of the complete J’Accuse reading, vocabulary, expression, and scheduling flows, followed by a separately authorized repository push and deployment. Authentication and server-side multi-device learner persistence remain separate future services designed against the existing domain interfaces.

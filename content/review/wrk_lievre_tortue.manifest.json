@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "algorithmVersion": "fr-tokenizer-v1",
+  "algorithmVersion": "fr-tokenizer-v2",
   "workId": "wrk_lievre_tortue",
   "sourceDigest": "sha256:ff9e3179fb4d4c0ed4715238724f8ec06090096e0706c05566ea1a8be5fa12d9",
   "candidates": [

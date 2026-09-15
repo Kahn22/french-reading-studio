@@ -3,6 +3,7 @@ export interface TokenSpan { start: number; end: number; text: string; normalize
 const wordPattern = /\p{L}+(?:[’']\p{L}+)*(?:-\p{L}+(?:[’']\p{L}+)*)*/gu;
 const elidedPrefixes = new Set(["c", "d", "j", "l", "m", "n", "s", "t", "qu", "jusqu", "lorsqu", "puisqu"]);
 const inversionPattern = /^(\p{L}+(?:[’']\p{L}+)*)-(?:t-)?(je|tu|il|elle|on|nous|vous|ils|elles|ce)$/iu;
+const nominalRendezVousPrefix = /(?:^|[^\p{L}])(?:les|des|un|le|du|au|aux)\s+$/iu;
 
 export function normalizeFrenchToken(value: string): string {
   return value.normalize("NFC").replaceAll("'", "’").toLocaleLowerCase("fr-FR");
@@ -13,6 +14,11 @@ export function tokenizeFrench(text: string): TokenSpan[] {
   for (const match of text.matchAll(wordPattern)) {
     const start = match.index;
     const token = match[0];
+    // « les rendez-vous » is a noun, while « rendez-vous demain » is an imperative.
+    if (normalizeFrenchToken(token) === "rendez-vous" && nominalRendezVousPrefix.test(text.slice(0, start))) {
+      push(spans, text, start, start + token.length);
+      continue;
+    }
     const inversion = token.match(inversionPattern);
     if (inversion) {
       const verb = inversion[1]!;

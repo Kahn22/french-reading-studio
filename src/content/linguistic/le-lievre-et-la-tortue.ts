@@ -386,7 +386,7 @@ const partOfSpeechOverrides: Record<string, string> = {
 
 /**
  * Materializes reviewed Lièvre decisions into the shared linguistic catalog.
- * The work stays in processing until all eight prepared quiz levels exist.
+ * The work stays in processing until all three prepared quiz bands cover Levels 1–8.
  */
 export function createLievreLinguisticBundle(): ContentBundle {
   const bundle = structuredClone(corbeauLearningBundle);

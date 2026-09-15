@@ -1,6 +1,6 @@
-import type { ContentBundle } from "../../domain/model.js";
+import type { LegacyQuizItem } from "./authoring.js";
 
-export const corbeauQuizBatch03: ContentBundle["quizItems"] = [
+export const corbeauQuizBatch03: LegacyQuizItem[] = [
   { id: "qiz_en_in_01", surfaceFormId: "srf_en", senseId: "sns_en_in", masteryLevel: 1, format: "meaning_choice", contextFrench: "Les enfants restent en classe pendant la pluie.", targetText: "en", prompt: "Meaning", choicesEnglish: ["in", "outside", "toward", "behind"], correctAnswer: "in" },
   { id: "qiz_en_in_02", surfaceFormId: "srf_en", senseId: "sns_en_in", masteryLevel: 2, format: "meaning_choice", contextFrench: "Ce poisson vit en eau douce.", targetText: "en", prompt: "Meaning", choicesEnglish: ["in", "above", "without", "across"], correctAnswer: "in" },
   { id: "qiz_en_in_03", surfaceFormId: "srf_en", senseId: "sns_en_in", masteryLevel: 3, format: "meaning_choice", contextFrench: "Le village paraît calme en hiver.", targetText: "en", prompt: "Meaning", choicesEnglish: ["in", "before", "despite", "near"], correctAnswer: "in" },

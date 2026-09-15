@@ -21,6 +21,13 @@ describe("editorial ingestion", () => {
     for (const token of tokens) expect(source.slice(token.start, token.end)).toBe(token.text);
   });
 
+  it("keeps nominal rendez-vous intact without masking imperative inversion", () => {
+    const source = "Les rendez-vous dans les endroits déserts; rendez-vous demain.";
+    const tokens = tokenizeFrench(source);
+    expect(tokens.map((token) => token.text)).toEqual(["Les", "rendez-vous", "dans", "les", "endroits", "déserts", "rendez", "vous", "demain"]);
+    for (const token of tokens) expect(source.slice(token.start, token.end)).toBe(token.text);
+  });
+
   it("produces byte-identical manifests for identical input", () => {
     const first = serializeManifest(prepareIngestionManifest(lafountainFixtures, "wrk_lievre_tortue"));
     const second = serializeManifest(prepareIngestionManifest(structuredClone(lafountainFixtures), "wrk_lievre_tortue"));
@@ -54,5 +61,12 @@ describe("editorial ingestion", () => {
     const decisions = manifest.candidates.map((candidate) => ({ candidateId: candidate.id, disposition: "editorial_artifact" as const }));
     decisions[0] = { candidateId: manifest.candidates[0]!.id, disposition: "vocabulary" } as never;
     expect(() => assertReviewComplete(manifest, decisions)).toThrow("lacks lemma, sense, or surface-form identity");
+  });
+
+  it("requires a stable identity for expression review decisions", () => {
+    const manifest = prepareIngestionManifest(lafountainFixtures, "wrk_corbeau_renard");
+    const decisions = manifest.candidates.map((candidate) => ({ candidateId: candidate.id, disposition: "editorial_artifact" as const }));
+    decisions[0] = { candidateId: manifest.candidates[0]!.id, disposition: "expression" } as never;
+    expect(() => assertReviewComplete(manifest, decisions)).toThrow("lacks expression identity");
   });
 });

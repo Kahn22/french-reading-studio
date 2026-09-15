@@ -15,14 +15,14 @@ export function isVocabularyIdentityLearnerPublished(
 ): boolean {
   const surface = bundle.surfaceForms.find((item) => item.id === surfaceFormId);
   const sense = bundle.senses.find((item) => item.id === senseId);
-  const preparedLevels = new Set(bundle.quizItems
+  const preparedBands = new Set(bundle.quizItems
     .filter((quiz) => quiz.surfaceFormId === surfaceFormId && quiz.senseId === senseId)
-    .map((quiz) => quiz.masteryLevel));
+    .map((quiz) => quiz.band));
   return Boolean(
     surface
     && sense
     && surface.lemmaId === sense.lemmaId
-    && preparedLevels.size === 8,
+    && preparedBands.size === 3,
   );
 }
 
@@ -33,11 +33,24 @@ export function learnerVocabularyForWork(bundle: ContentBundle, workId: string):
   const work = bundle.works.find((item) => item.id === workId);
   if (!work || !["learning_ready", "published"].includes(work.publicationState)) return [];
 
+  const preparedBandsByIdentity = new Map<string, Set<string>>();
+  for (const quiz of bundle.quizItems) {
+    const key = vocabularyIdentityKey(quiz.surfaceFormId, quiz.senseId);
+    const bands = preparedBandsByIdentity.get(key) ?? new Set<string>();
+    bands.add(quiz.band);
+    preparedBandsByIdentity.set(key, bands);
+  }
+  const learnerPublished = new Set(
+    [...preparedBandsByIdentity.entries()]
+      .filter(([, bands]) => bands.size === 3)
+      .map(([key]) => key),
+  );
   const identities = new Map<string, LearnerVocabularyIdentity>();
   for (const occurrence of bundle.occurrences.filter((item) => item.workId === workId)) {
-    if (!isVocabularyIdentityLearnerPublished(bundle, occurrence.surfaceFormId, occurrence.senseId)) continue;
+    const key = vocabularyIdentityKey(occurrence.surfaceFormId, occurrence.senseId);
+    if (!learnerPublished.has(key)) continue;
     const identity = { surfaceFormId: occurrence.surfaceFormId, senseId: occurrence.senseId };
-    identities.set(vocabularyIdentityKey(identity.surfaceFormId, identity.senseId), identity);
+    identities.set(key, identity);
   }
   return [...identities.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([, identity]) => identity);
 }

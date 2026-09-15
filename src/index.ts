@@ -9,3 +9,7 @@ export * from "./learner/scheduler.js";
 export * from "./content/linguistic/le-corbeau-et-le-renard.js";
 export * from "./content/linguistic/le-lievre-et-la-tortue.js";
 export { lafountainFixtures } from "./content/fixtures/la-fontaine.js";
+export { jAccuseCanonicalText, jAccuseThoughtUnits, zolaSourceAcquisition } from "./content/fixtures/zola.js";
+export * from "./pipeline/model.js";
+export * from "./pipeline/run.js";
+export * from "./pipeline/lexical-plan.js";
