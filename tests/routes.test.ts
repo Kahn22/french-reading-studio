@@ -6,6 +6,7 @@ describe("application routes", () => {
     expect(parseRoute("#/")) .toEqual({ name: "home" });
     expect(parseRoute("#/library")).toEqual({ name: "library" });
     expect(parseRoute("#/read/wrk_corbeau_renard")).toEqual({ name: "read", workId: "wrk_corbeau_renard" });
+    expect(parseRoute("#/book/wrk_corbeau_renard")).toEqual({ name: "book", workId: "wrk_corbeau_renard" });
   });
 
   it("falls back safely instead of accepting malformed paths", () => {
@@ -16,5 +17,6 @@ describe("application routes", () => {
   it("formats stable hash routes for GitHub Pages", () => {
     expect(routeHash({ name: "library" })).toBe("#/library");
     expect(routeHash({ name: "read", workId: "wrk_corbeau_renard" })).toBe("#/read/wrk_corbeau_renard");
+    expect(routeHash({ name: "book", workId: "wrk_corbeau_renard" })).toBe("#/book/wrk_corbeau_renard");
   });
 });

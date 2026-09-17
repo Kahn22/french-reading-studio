@@ -10,6 +10,8 @@ const storageKey = "french-reading-studio:learner-state:v2";
 const legacyStorageKey = "french-reading-studio:mastery:v1";
 const demoSessionKey = "french-reading-studio:demo-session:v1";
 const readingLibraryStorageKey = "french-reading-studio:reading-library:v1";
+const bookPositionStorageKey = "french-reading-studio:book-position:v1";
+const BOOK_SECTIONS_PER_PAGE = 8;
 let visibleWorks: typeof bundle.works = [];
 let visibleWorkIds = new Set<string>();
 let readableWorkIds = new Set<string>();
@@ -36,7 +38,26 @@ let reviewPrefetch: Promise<void> | undefined;
 let reviewSessionIndex = 0;
 let reviewScopeWorkId: string | undefined;
 let reviewReturnRoute: AppRoute = { name: "library" };
+let sectionReviewAdvances = false;
 let readerSectionIndex = 0;
+let bookPageIndex = 0;
+let currentSection: Awaited<ReturnType<typeof loadReadingSection>> | undefined;
+let encounterObserver: IntersectionObserver | undefined;
+let sheetScrollPosition = 0;
+
+function lockPageScroll() {
+  if (document.body.classList.contains("sheet-open")) return;
+  sheetScrollPosition = window.scrollY;
+  document.body.style.top = `-${sheetScrollPosition}px`;
+  document.body.classList.add("sheet-open");
+}
+
+function unlockPageScroll() {
+  if (!document.body.classList.contains("sheet-open")) return;
+  document.body.classList.remove("sheet-open");
+  document.body.style.top = "";
+  window.scrollTo(0, sheetScrollPosition);
+}
 
 function escapeHtml(value: string) {
   return value.replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]!);
@@ -67,6 +88,16 @@ function saveLearnerState() {
 
 function loadReadingLibraryState(): ReadingLibraryState {
   return parseReadingLibraryState(parsedJson(readingLibraryStorageKey));
+}
+
+function loadBookPositions(): Record<string, number> {
+  const value = parsedJson(bookPositionStorageKey);
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return Object.fromEntries(Object.entries(value).filter((entry): entry is [string, number] => typeof entry[1] === "number" && Number.isSafeInteger(entry[1]) && entry[1] >= 0));
+}
+
+function saveBookPosition(workId: string, pageIndex: number) {
+  try { localStorage.setItem(bookPositionStorageKey, JSON.stringify({ ...loadBookPositions(), [workId]: pageIndex })); } catch { /* Reading position is a local convenience. */ }
 }
 
 function refreshLibraryAccess() {
@@ -143,14 +174,19 @@ function actionableClaims(workId?: string, at = new Date()) {
   });
 }
 
+function actionableClaimsForSection(section: NonNullable<typeof currentSection>, at = new Date()) {
+  const identities = new Set(section.occurrences.map(identityFor));
+  const unitIds = new Set(section.units.map((unit) => unit.id));
+  for (const occurrence of expressionCatalog.occurrences) {
+    if (occurrence.workId === section.workId && unitIds.has(occurrence.unitId)) identities.add(expressionMasteryKey(occurrence.identityId));
+  }
+  return createReviewSession(learnerState, at).filter((claim) => identities.has(claim.vocabularyIdentity));
+}
+
 const dueCount = (workId?: string) => actionableClaims(workId).length;
 
 function unencounteredVocabularyCount(workId: string) {
   return Object.entries(manifest.identityLocations).filter(([identity, locations]) => !learnerState[identity] && locations.some((location) => location.workId === workId)).length;
-}
-
-function formattedDue(occurrence: Occurrence) {
-  return formattedDueState(learnerState[identityFor(occurrence)]!);
 }
 
 function formattedDueState(state: VocabularyLearnerStateRecord[string]) {
@@ -181,11 +217,17 @@ function renderHome() {
 function renderTextCard(work: (typeof bundle.works)[number], status: LibraryStatus) {
   const { collection, author } = workMetadata(work.id);
   const unencountered = unencounteredVocabularyCount(work.id);
-  const metadata = `<p class="card-meta">${escapeHtml(author.name)} · ${escapeHtml(collection.title)}</p><h3>${escapeHtml(work.title)}</h3><span class="unencountered-count">${unencountered} ${unencountered === 1 ? "unencountered word" : "unencountered words"}</span>`;
   const textDue = dueCount(work.id);
-  if (status === "available") return `<article class="text-card">${metadata}<div class="card-actions"><button class="primary" type="button" data-action="start-reading" data-work-id="${escapeHtml(work.id)}">Start reading</button><span>Available</span></div></article>`;
-  if (status === "completed") return `<article class="text-card completed-card">${metadata}<div class="card-actions"><button class="secondary" type="button" data-action="start-reading" data-work-id="${escapeHtml(work.id)}">Read again</button><span><strong data-due-count data-scope="${escapeHtml(work.id)}">${textDue}</strong> due</span></div><button class="review-button card-review" type="button" data-action="start-review-text" data-work-id="${escapeHtml(work.id)}" ${textDue === 0 ? "disabled" : ""}>Review due words and expressions</button></article>`;
-  return `<article class="text-card reading-card">${metadata}<div class="card-actions"><button class="primary" type="button" data-route="#/read/${escapeHtml(work.id)}">Continue reading</button><span><strong data-due-count data-scope="${escapeHtml(work.id)}">${textDue}</strong> due</span></div><div class="card-management"><button class="text-button" type="button" data-action="stop-reading" data-work-id="${escapeHtml(work.id)}">Move to available</button><button class="text-button complete-action" type="button" data-action="mark-completed" data-work-id="${escapeHtml(work.id)}">Mark completed</button></div></article>`;
+  const workId = escapeHtml(work.id);
+  const metadata = `<div class="text-card-title"><p class="card-meta">${escapeHtml(author.name)} · ${escapeHtml(collection.title)}</p><h3>${escapeHtml(work.title)}</h3></div>`;
+  const counts = `<div class="card-counts"><span class="unencountered-count"><strong>${unencountered}</strong> unencountered</span>${status === "available" ? "" : `<span class="due-count"><strong data-due-count data-scope="${workId}">${textDue}</strong> due</span>`}</div>`;
+  const bookAction = `<button class="secondary book-view-action" type="button" data-route="#/book/${workId}">Read in Book View</button>`;
+  const reviewAction = status !== "available" ? `<button type="button" data-action="start-review-text" data-work-id="${workId}" ${textDue === 0 ? "disabled" : ""}>Review due words and expressions</button>` : "";
+  const menu = (actions: string) => reviewAction || actions ? `<details class="card-menu"><summary aria-label="More options for ${escapeHtml(work.title)}">•••</summary><div class="card-menu-items">${reviewAction}${actions}</div></details>` : "";
+  const actions = (primaryAction: string, menuActions: string) => `<div class="card-primary"><div class="card-action-stack">${primaryAction}${bookAction}</div>${menu(menuActions)}</div>`;
+  if (status === "available") return `<article class="text-card">${metadata}${counts}${actions(`<button class="primary" type="button" data-action="start-reading" data-work-id="${workId}">Start learning</button>`, `<button type="button" data-action="mark-reading" data-work-id="${workId}">Move to Reading</button>`)}</article>`;
+  if (status === "completed") return `<article class="text-card completed-card">${metadata}${counts}${actions(`<button class="secondary" type="button" data-action="start-reading" data-work-id="${workId}">Read again</button>`, "")}</article>`;
+  return `<article class="text-card reading-card">${metadata}${counts}${actions(`<button class="primary" type="button" data-route="#/read/${workId}">Continue learning</button>`, `<button type="button" data-action="stop-reading" data-work-id="${workId}">Move to available</button><button class="complete-action" type="button" data-action="mark-completed" data-work-id="${workId}">Mark completed</button>`)}</article>`;
 }
 
 function renderLibrary() {
@@ -194,10 +236,10 @@ function renderLibrary() {
   const reading = easiestFirst(visibleWorks.filter((work) => libraryStatusFor(readingLibraryState, work.id) === "reading"));
   const available = easiestFirst(visibleWorks.filter((work) => libraryStatusFor(readingLibraryState, work.id) === "available"));
   const completed = easiestFirst(visibleWorks.filter((work) => libraryStatusFor(readingLibraryState, work.id) === "completed"));
-  const shelf = (id: string, eyebrow: string, title: string, works: typeof visibleWorks, empty: string) => `<section class="library-shelf" aria-labelledby="${id}"><div class="section-heading"><div><p class="eyebrow">${eyebrow}</p><h2 id="${id}">${title}</h2></div><span>${works.length}</span></div>${works.length ? `<div class="text-grid">${works.map((work) => renderTextCard(work, libraryStatusFor(readingLibraryState, work.id))).join("")}</div>` : `<p class="empty-shelf">${empty}</p>`}</section>`;
+  const shelf = (id: string, eyebrow: string, title: string, works: typeof visibleWorks, empty: string, expanded = false) => `<details class="library-shelf" ${expanded ? "open" : ""}><summary class="section-heading"><div><p class="eyebrow">${eyebrow}</p><h2 id="${id}">${title}</h2></div><span class="shelf-count">${works.length}</span><span class="shelf-chevron" aria-hidden="true">⌄</span></summary>${works.length ? `<div class="text-grid">${works.map((work) => renderTextCard(work, libraryStatusFor(readingLibraryState, work.id))).join("")}</div>` : `<p class="empty-shelf">${empty}</p>`}</details>`;
   app.innerHTML = `${navigation()}<div class="page library-page"><header class="library-header"><div><p class="eyebrow">Learner home</p><h1>Your library</h1><p class="lede">Mark any available text as Reading to open it and activate its vocabulary and expression reviews.</p></div>
     <button class="review-hero" type="button" data-action="start-review-all" ${totalDue === 0 ? "disabled" : ""}><span>Review all due items</span><strong data-due-count data-scope="all">${totalDue}</strong><small>${totalDue === 1 ? "word or expression due" : "words or expressions due"}</small></button></header>
-    ${shelf("reading-title", "Active shelf", "Reading", reading, "No texts are marked as Reading.")}
+    ${shelf("reading-title", "Active shelf", "Reading", reading, "No texts are marked as Reading.", true)}
     ${shelf("available-title", "Library", "Available texts", available, "Every available text is currently in your Reading or Completed list.")}
     ${shelf("completed-title", "Your history", "Completed texts", completed, "Completed texts will appear here.")}
     <p class="preview-notice">Preview account · Library status and progress are saved only in this browser.</p></div>`;
@@ -219,22 +261,57 @@ function renderUnitFrench(unit: (typeof bundle.units)[number], occurrences: Occu
 }
 
 async function renderText(workId: string) {
+  encounterObserver?.disconnect();
   const metadata = workMetadata(workId);
   const sectionCount = manifest.works[workId]?.sectionCount ?? 0;
   readerSectionIndex = Math.max(0, Math.min(readerSectionIndex, Math.max(0, sectionCount - 1)));
   const section = await loadReadingSection(workId, readerSectionIndex);
-  const units = [section.unit];
+  currentSection = section;
+  const units = section.units;
   const occurrences = section.occurrences;
-  const sectionExpressionIds = new Set(expressionCatalog.occurrences.filter((item) => item.workId === workId && item.unitId === section.unit.id).map((item) => item.identityId));
+  const unitIds = new Set(units.map((unit) => unit.id));
+  const sectionExpressionIds = new Set(expressionCatalog.occurrences.filter((item) => item.workId === workId && unitIds.has(item.unitId)).map((item) => item.identityId));
   const sectionExpressions = expressionCatalog.identities.filter((item) => sectionExpressionIds.has(item.id));
-  initializeSectionEncounters(workId, section.unit.id, occurrences, new Date());
   contentLoader.preloadNextSection(workId, readerSectionIndex, sectionCount);
   const textDue = dueCount(workId);
-  app.innerHTML = `${navigation()}<div class="page reader-page"><button class="back" type="button" data-route="#/library">← Your library</button><header><p class="eyebrow">${escapeHtml(metadata.author.name)} · ${escapeHtml(metadata.collection.title)} · Livre ${metadata.book.ordinal} · Texte ${metadata.work.ordinal}</p><h1>${escapeHtml(metadata.work.title)}</h1><p class="lede">Texte français authentique · Touchez un mot souligné pour l’étudier.</p>
-    <div class="reader-actions"><button class="review-button" type="button" data-action="start-review-text" data-work-id="${escapeHtml(workId)}" ${textDue === 0 ? "disabled" : ""}>Réviser les mots et expressions de ce texte <span class="due-pill" data-due-count data-scope="${escapeHtml(workId)}">${textDue}</span></button><button class="text-button complete-action" type="button" data-action="mark-completed" data-work-id="${escapeHtml(workId)}">Mark completed</button></div></header>
-    <main class="text-units" aria-label="Texte français">${units.map((unit) => `<article class="unit"><span class="number" aria-hidden="true">${unit.ordinal}</span><p class="french">${renderUnitFrench(unit, occurrences)}</p></article>`).join("")}</main>
+  app.innerHTML = `${navigation()}<div class="page reader-page"><button class="back" type="button" data-route="#/library">← Your library</button><header><p class="eyebrow">${escapeHtml(metadata.author.name)} · ${escapeHtml(metadata.collection.title)} · Livre ${metadata.book.ordinal} · Texte ${metadata.work.ordinal}</p><h1>${escapeHtml(metadata.work.title)}</h1><p class="lede">Passage français authentique · Touchez un mot souligné pour l’étudier.</p>
+    <div class="reader-actions"><button class="review-button" type="button" data-action="start-review-text" data-work-id="${escapeHtml(workId)}" ${textDue === 0 ? "disabled" : ""}>Réviser les mots et expressions de ce texte <span class="due-pill" data-due-count data-scope="${escapeHtml(workId)}">${textDue}</span></button><button class="secondary" type="button" data-route="#/book/${escapeHtml(workId)}">Book View</button><button class="text-button complete-action" type="button" data-action="mark-completed" data-work-id="${escapeHtml(workId)}">Mark completed</button></div></header>
+    <main class="text-units" aria-label="Texte français">${units.map((unit) => `<article class="unit" data-reading-unit="${escapeHtml(unit.id)}"><span class="number" aria-hidden="true">${unit.ordinal}</span><p class="french">${renderUnitFrench(unit, occurrences)}</p></article>`).join("")}</main>
     ${sectionExpressions.length ? `<section class="expression-panel" aria-labelledby="expressions-title"><p class="eyebrow">Expressions dans cette section</p><h2 id="expressions-title">Expressions préparées</h2><div class="expression-list">${sectionExpressions.map((identity) => `<button class="secondary" type="button" data-expression-id="${escapeHtml(identity.id)}">${escapeHtml(identity.headword)} · ${escapeHtml(identity.gloss)}</button>`).join("")}</div></section>` : ""}
     <footer class="reading-checkpoint"><p>Section ${readerSectionIndex + 1} sur ${sectionCount}</p><div><button class="secondary" type="button" data-action="previous-section" ${readerSectionIndex === 0 ? "disabled" : ""}>← Précédente</button> <button class="primary" type="button" data-action="next-section" ${readerSectionIndex + 1 >= sectionCount ? "disabled" : ""}>Suivante →</button></div></footer></div>`;
+  observeReadingUnits(workId, units, occurrences);
+}
+
+function observeReadingUnits(workId: string, units: (typeof bundle.units), occurrences: Occurrence[]) {
+  const encounter = (unitId: string) => initializeSectionEncounters(workId, unitId, occurrences.filter((item) => item.unitId === unitId), new Date());
+  if (!("IntersectionObserver" in window)) {
+    for (const unit of units) encounter(unit.id);
+    return;
+  }
+  encounterObserver = new IntersectionObserver((entries, observer) => {
+    for (const entry of entries) {
+      if (!entry.isIntersecting) continue;
+      const unitId = (entry.target as HTMLElement).dataset.readingUnit;
+      if (unitId) encounter(unitId);
+      observer.unobserve(entry.target);
+    }
+  }, { threshold: 0.1 });
+  document.querySelectorAll<HTMLElement>("[data-reading-unit]").forEach((element) => encounterObserver!.observe(element));
+}
+
+async function renderBook(workId: string) {
+  encounterObserver?.disconnect();
+  currentSection = undefined;
+  const metadata = workMetadata(workId);
+  const sectionCount = manifest.works[workId]?.sectionCount ?? 0;
+  const pageCount = Math.max(1, Math.ceil(sectionCount / BOOK_SECTIONS_PER_PAGE));
+  bookPageIndex = Math.max(0, Math.min(bookPageIndex, pageCount - 1));
+  saveBookPosition(workId, bookPageIndex);
+  const firstSection = bookPageIndex * BOOK_SECTIONS_PER_PAGE;
+  const sectionIndexes = Array.from({ length: Math.min(BOOK_SECTIONS_PER_PAGE, sectionCount - firstSection) }, (_, offset) => firstSection + offset);
+  const sections = await Promise.all(sectionIndexes.map((index) => loadReadingSection(workId, index)));
+  const units = sections.flatMap((section) => section.units);
+  app.innerHTML = `${navigation()}<div class="book-page"><div class="book-toolbar"><button class="back" type="button" data-route="#/library">← Your library</button><button class="secondary" type="button" data-action="enter-learning" data-work-id="${escapeHtml(workId)}">Switch to Learning View</button></div><header class="book-header"><p class="eyebrow">Book View · ${escapeHtml(metadata.author.name)}</p><h1>${escapeHtml(metadata.work.title)}</h1><p>No underlining, quizzes, or vocabulary tracking.</p></header><main class="book-text" lang="fr">${units.map((unit) => `<p>${escapeHtml(unit.french)}</p>`).join("")}</main><footer class="book-pagination"><button class="secondary" type="button" data-action="previous-book-page" ${bookPageIndex === 0 ? "disabled" : ""}>← Previous pages</button><span>Part ${bookPageIndex + 1} of ${pageCount}</span><button class="primary" type="button" data-action="next-book-page" ${bookPageIndex + 1 >= pageCount ? "disabled" : ""}>Continue reading →</button></footer></div>`;
 }
 
 function renderVocabularySheet(occurrence: Occurrence) {
@@ -242,8 +319,8 @@ function renderVocabularySheet(occurrence: Occurrence) {
   activeQuiz = undefined;
   const surface = surfaceFor(occurrence), sense = senseFor(occurrence), lemma = lemmaFor(occurrence);
   const state = learnerState[identityFor(occurrence)]!;
-  const due = isDue(state, new Date());
-  app.insertAdjacentHTML("beforeend", `<div class="scrim" data-action="close-sheet"></div><aside class="sheet" aria-modal="true" role="dialog" aria-labelledby="vocabulary-title"><button class="close" type="button" data-action="close-sheet" aria-label="Fermer">×</button><p class="eyebrow">Vocabulaire · Niveau ${state.masteryLevel} sur 8</p><h2 id="vocabulary-title">${escapeHtml(surface.form)}</h2><dl><div><dt>Lemme</dt><dd>${escapeHtml(lemma.headword)}</dd></div><div><dt>Sens ici</dt><dd>${escapeHtml(sense.gloss)}</dd></div><div><dt>Catégorie</dt><dd>${escapeHtml(lemma.partOfSpeech)}</dd></div></dl><p class="schedule-status">${escapeHtml(formattedDue(occurrence))}</p><button class="primary" type="button" data-action="start-quiz" ${due ? "" : "disabled"}>${state.obligation === "accelerated" ? "Faire la révision accélérée" : "Réviser ce mot"}</button></aside>`);
+  lockPageScroll();
+  app.insertAdjacentHTML("beforeend", `<div class="scrim" data-action="close-sheet"></div><aside class="sheet" aria-modal="true" role="dialog" aria-labelledby="vocabulary-title"><button class="close" type="button" data-action="close-sheet" aria-label="Fermer">×</button><p class="eyebrow">Vocabulaire · Niveau ${state.masteryLevel} sur 8</p><h2 id="vocabulary-title">${escapeHtml(surface.form)}</h2><dl><div><dt>Lemme</dt><dd>${escapeHtml(lemma.headword)}</dd></div><div><dt>Sens ici</dt><dd>${escapeHtml(sense.gloss)}</dd></div><div><dt>Catégorie</dt><dd>${escapeHtml(lemma.partOfSpeech)}</dd></div></dl></aside>`);
   document.querySelector<HTMLButtonElement>(".sheet .close")?.focus();
 }
 
@@ -255,6 +332,7 @@ function renderExpressionSheet(expressionId: string) {
   selectedOccurrence = undefined;
   activeQuiz = undefined;
   const due = isDue(state, new Date());
+  lockPageScroll();
   app.insertAdjacentHTML("beforeend", `<div class="scrim" data-action="close-sheet"></div><aside class="sheet" aria-modal="true" role="dialog" aria-labelledby="expression-title"><button class="close" type="button" data-action="close-sheet" aria-label="Fermer">×</button><p class="eyebrow">Expression · Niveau ${state.masteryLevel} sur 8</p><h2 id="expression-title">${escapeHtml(identity.headword)}</h2><dl><div><dt>Sens</dt><dd>${escapeHtml(identity.gloss)}</dd></div><div><dt>Définition</dt><dd>${escapeHtml(identity.definition)}</dd></div></dl><p class="schedule-status">${escapeHtml(formattedDueState(state))}</p><button class="primary" type="button" data-action="start-expression-quiz" ${due ? "" : "disabled"}>${state.obligation === "accelerated" ? "Faire la révision accélérée" : "Réviser cette expression"}</button></aside>`);
   document.querySelector<HTMLButtonElement>(".sheet .close")?.focus();
 }
@@ -272,6 +350,7 @@ function quizPresentation(quiz: QuizItem | ExpressionQuiz) {
 }
 
 function renderQuiz() {
+  unlockPageScroll();
   if ((!selectedOccurrence && !selectedExpressionId) || !activeQuiz) return finishReview();
   const quiz = activeQuiz;
   const identityKey = selectedOccurrence ? identityFor(selectedOccurrence) : expressionMasteryKey(selectedExpressionId!);
@@ -280,8 +359,11 @@ function renderQuiz() {
   const answered = selectedAnswer !== undefined, correct = selectedAnswer === quiz.correctAnswer;
   const state = learnerState[identityKey]!;
   const progress = reviewSession ? `${Math.min(reviewSessionIndex + 1, reviewSession.length)} sur ${reviewSession.length}` : "";
-  const mode = reviewScopeWorkId ? "Révision de ce texte" : "Révision générale";
-  app.innerHTML = `<section class="quiz" aria-labelledby="quiz-prompt"><button class="back" type="button" data-action="end-review">← Terminer la révision</button><p class="eyebrow">${mode} · ${progress}</p><p class="quiz-level">${escapeHtml(label)} · Niveau ${state.masteryLevel} sur 8</p><p class="quiz-context" lang="fr">${presentation.context}</p><h2 id="quiz-prompt">${escapeHtml(presentation.prompt)}</h2><div class="quiz-choices">${choices.map((choice) => {
+  const mode = sectionReviewAdvances ? "Révision de cette section" : reviewScopeWorkId ? "Révision de ce texte" : "Révision générale";
+  const reviewNavigation = sectionReviewAdvances
+    ? `<div class="checkpoint-actions"><button class="text-button" type="button" data-action="reread-section">← Reread this section</button><button class="text-button" type="button" data-action="skip-section-review">Skip review and read the next section →</button></div>`
+    : `<button class="back" type="button" data-action="end-review">← Terminer la révision</button>`;
+  app.innerHTML = `<section class="quiz" aria-labelledby="quiz-prompt">${reviewNavigation}<p class="eyebrow">${mode} · ${progress}</p><p class="quiz-level">${escapeHtml(label)} · Niveau ${state.masteryLevel} sur 8</p><p class="quiz-context" lang="fr">${presentation.context}</p><h2 id="quiz-prompt">${escapeHtml(presentation.prompt)}</h2><div class="quiz-choices">${choices.map((choice) => {
     const resultClass = answered && choice === quiz.correctAnswer ? " correct" : answered && choice === selectedAnswer ? " incorrect" : "";
     return `<button type="button" class="choice${resultClass}" data-answer="${escapeHtml(choice)}" ${answered ? "disabled" : ""}>${escapeHtml(choice)}</button>`;
   }).join("")}</div>${answered ? `<div class="feedback ${correct ? "success" : "retry"}" role="status"><strong>${correct ? "Correct !" : "Pas encore."}</strong><span>${activeClaim?.obligation === "accelerated" ? `Le niveau reste à ${state.masteryLevel}. La programmation normale reprend.` : correct ? `Le niveau de maîtrise passe à ${state.masteryLevel}.` : `Réponse correcte : ${escapeHtml(quiz.correctAnswer)} · Niveau ${state.masteryLevel}.`}</span><span>${escapeHtml(formattedDueState(state))}</span></div><button class="primary continue" type="button" data-action="continue-quiz">Continuer</button>` : ""}</section>`;
@@ -289,6 +371,7 @@ function renderQuiz() {
 
 function closeSheet() {
   document.querySelector(".scrim")?.remove(); document.querySelector(".sheet")?.remove();
+  unlockPageScroll();
   selectedOccurrence = undefined; selectedExpressionId = undefined; activeQuiz = undefined; activeClaim = undefined;
 }
 
@@ -310,10 +393,11 @@ async function startClaim(claim: ReviewClaim): Promise<boolean> {
   selectedOccurrence = occurrence; selectedExpressionId = undefined; selectedAnswer = undefined; activeClaim = claim; renderQuiz(); return true;
 }
 
-async function beginReview(workId?: string, singleClaim?: ReviewClaim) {
+async function beginReview(workId?: string, singleClaim?: ReviewClaim, suppliedClaims?: ReviewClaim[], advanceAfter = false) {
   reviewScopeWorkId = workId;
   reviewReturnRoute = workId ? { name: "read", workId } : { name: "library" };
-  const claims = singleClaim ? [singleClaim] : actionableClaims(workId);
+  sectionReviewAdvances = advanceAfter;
+  const claims = suppliedClaims ?? (singleClaim ? [singleClaim] : actionableClaims(workId));
   reviewSession = claims.slice(0, 10);
   reviewBacklog = claims.slice(10);
   reviewPrefetch = undefined;
@@ -344,8 +428,18 @@ async function continueReviewSession() {
 }
 
 function finishReview() {
+  const advance = sectionReviewAdvances && reviewReturnRoute.name === "read";
   reviewSession = undefined; reviewBacklog = []; reviewPrefetch = undefined; selectedOccurrence = undefined; selectedExpressionId = undefined; selectedAnswer = undefined; activeQuiz = undefined; activeClaim = undefined;
+  sectionReviewAdvances = false;
+  if (advance) readerSectionIndex += 1;
   go(reviewReturnRoute);
+}
+
+function leaveSectionReview(advance: boolean) {
+  const route = reviewReturnRoute;
+  reviewSession = undefined; reviewBacklog = []; reviewPrefetch = undefined; selectedOccurrence = undefined; selectedExpressionId = undefined; selectedAnswer = undefined; activeQuiz = undefined; activeClaim = undefined; sectionReviewAdvances = false;
+  if (advance) readerSectionIndex += 1;
+  go(route);
 }
 
 function go(route: AppRoute) {
@@ -354,7 +448,8 @@ function go(route: AppRoute) {
 }
 
 function resetTransientUi() {
-  selectedOccurrence = undefined; selectedExpressionId = undefined; selectedAnswer = undefined; activeQuiz = undefined; activeClaim = undefined; reviewSession = undefined; reviewBacklog = []; reviewPrefetch = undefined;
+  unlockPageScroll();
+  selectedOccurrence = undefined; selectedExpressionId = undefined; selectedAnswer = undefined; activeQuiz = undefined; activeClaim = undefined; reviewSession = undefined; reviewBacklog = []; reviewPrefetch = undefined; sectionReviewAdvances = false;
 }
 
 async function renderCurrentRoute() {
@@ -365,13 +460,25 @@ async function renderCurrentRoute() {
   }
   if (currentRoute.name === "library") return renderLibrary();
   if (currentRoute.name === "read" && readableWorkIds.has(currentRoute.workId)) return renderText(currentRoute.workId);
+  if (currentRoute.name === "book" && visibleWorkIds.has(currentRoute.workId)) {
+    bookPageIndex = loadBookPositions()[currentRoute.workId] ?? 0;
+    return renderBook(currentRoute.workId);
+  }
   renderHome();
 }
 
 app.addEventListener("click", async (event) => {
   const target = (event.target as HTMLElement).closest<HTMLElement>("[data-occurrence-id], [data-expression-id], [data-route], [data-action], [data-answer]");
   if (!target) return;
-  if (target.dataset.route) { if (target.dataset.route.startsWith("#/read/")) readerSectionIndex = 0; location.hash = target.dataset.route; return; }
+  if (target.dataset.route) {
+    if (target.dataset.route.startsWith("#/read/")) readerSectionIndex = 0;
+    if (target.dataset.route.startsWith("#/book/") && currentRoute.name === "read") {
+      bookPageIndex = Math.floor(readerSectionIndex / BOOK_SECTIONS_PER_PAGE);
+      saveBookPosition(currentRoute.workId, bookPageIndex);
+    }
+    location.hash = target.dataset.route;
+    return;
+  }
   if (target.dataset.occurrenceId) {
     const occurrence = bundle.occurrences.find((item) => item.id === target.dataset.occurrenceId);
     if (occurrence) renderVocabularySheet(occurrence);
@@ -389,6 +496,20 @@ app.addEventListener("click", async (event) => {
   if (action === "start-reading") {
     const workId = target.dataset.workId;
     if (workId && visibleWorkIds.has(workId)) { setLibraryStatus(workId, "reading"); readerSectionIndex = 0; go({ name: "read", workId }); }
+    return;
+  }
+  if (action === "mark-reading") {
+    const workId = target.dataset.workId;
+    if (workId && visibleWorkIds.has(workId)) { setLibraryStatus(workId, "reading"); renderLibrary(); }
+    return;
+  }
+  if (action === "enter-learning") {
+    const workId = target.dataset.workId;
+    if (workId && visibleWorkIds.has(workId)) {
+      setLibraryStatus(workId, "reading");
+      readerSectionIndex = bookPageIndex * BOOK_SECTIONS_PER_PAGE;
+      go({ name: "read", workId });
+    }
     return;
   }
   if (action === "mark-completed") {
@@ -410,11 +531,6 @@ app.addEventListener("click", async (event) => {
     if (workId && quizEligibleWorkIds.has(workId)) await beginReview(workId);
     return;
   }
-  if (action === "start-quiz" && selectedOccurrence) {
-    const state = learnerState[identityFor(selectedOccurrence)]!;
-    if (isDue(state, new Date())) await beginReview(selectedOccurrence.workId, claimReview(identityFor(selectedOccurrence), state));
-    return;
-  }
   if (action === "start-expression-quiz" && selectedExpressionId) {
     const key = expressionMasteryKey(selectedExpressionId);
     const state = learnerState[key];
@@ -423,7 +539,16 @@ app.addEventListener("click", async (event) => {
   }
   if (action === "continue-quiz") { await continueReviewSession(); return; }
   if (action === "previous-section" && currentRoute.name === "read") { readerSectionIndex -= 1; await renderText(currentRoute.workId); return; }
-  if (action === "next-section" && currentRoute.name === "read") { readerSectionIndex += 1; await renderText(currentRoute.workId); return; }
+  if (action === "next-section" && currentRoute.name === "read") {
+    const claims = currentSection ? actionableClaimsForSection(currentSection) : [];
+    if (claims.length) await beginReview(currentRoute.workId, undefined, claims, true);
+    else { readerSectionIndex += 1; await renderText(currentRoute.workId); }
+    return;
+  }
+  if (action === "skip-section-review") { leaveSectionReview(true); return; }
+  if (action === "reread-section") { leaveSectionReview(false); return; }
+  if (action === "previous-book-page" && currentRoute.name === "book") { bookPageIndex -= 1; await renderBook(currentRoute.workId); return; }
+  if (action === "next-book-page" && currentRoute.name === "book") { bookPageIndex += 1; await renderBook(currentRoute.workId); return; }
   if (action === "end-review") { finishReview(); return; }
   const answer = target.dataset.answer;
   if (answer === undefined || (!selectedOccurrence && !selectedExpressionId) || !activeQuiz || !activeClaim || selectedAnswer !== undefined) return;
@@ -434,9 +559,18 @@ app.addEventListener("click", async (event) => {
   saveLearnerState(); selectedAnswer = answer; renderQuiz();
 });
 
+document.addEventListener("click", (event) => {
+  const openMenus = [...document.querySelectorAll<HTMLDetailsElement>(".card-menu[open]")];
+  if (!openMenus.length || openMenus.some((menu) => menu.contains(event.target as Node))) return;
+  event.preventDefault();
+  event.stopPropagation();
+  for (const menu of openMenus) menu.open = false;
+}, true);
+
 document.addEventListener("keydown", (event) => {
   if (event.key !== "Escape") return;
-  if (document.querySelector(".sheet")) closeSheet(); else if (document.querySelector(".quiz")) finishReview();
+  if (document.querySelector(".sheet")) closeSheet();
+  else if (document.querySelector(".quiz")) sectionReviewAdvances ? leaveSectionReview(false) : finishReview();
 });
 
 window.addEventListener("hashchange", () => { void renderCurrentRoute(); });

@@ -3,13 +3,17 @@ import { appBundle, appExpressionCatalog } from "../src/app/content.js";
 import { createDeliveryPackages, nextQuizIdentityBatch, shouldPrefetchNextQuizBatch } from "../src/delivery/content-packages.js";
 
 describe("incremental learner content delivery", () => {
-  it("packages each displayed thought unit with only its referenced linguistic data", () => {
+  it("groups thought units into natural reading passages with only their referenced linguistic data", () => {
     const packages = createDeliveryPackages(appBundle, appExpressionCatalog);
     const section = packages.readingSections.find((item) => item.workId === "wrk_corbeau_renard" && item.index === 0)!;
-    expect(section.unit.ordinal).toBe(1);
-    expect(section.occurrences.every((item) => item.unitId === section.unit.id)).toBe(true);
+    const unitIds = new Set(section.units.map((unit) => unit.id));
+    expect(section.units[0]?.ordinal).toBe(1);
+    expect(section.units.length).toBeGreaterThan(1);
+    expect(section.occurrences.every((item) => unitIds.has(item.unitId))).toBe(true);
     expect(new Set(section.surfaceForms.map((item) => item.id))).toEqual(new Set(section.occurrences.map((item) => item.surfaceFormId)));
     expect(section.lemmas.length).toBeLessThan(appBundle.lemmas.length);
+    expect(packages.manifest.readingSectionTargetWords).toBe(120);
+    expect(packages.readingSections.every((item) => item.units.length > 1 || item.units[0]!.french.trim().split(/\s+/u).length >= 80)).toBe(true);
   });
 
   it("stores three prepared questions per identity in deterministic ten-identity shards", () => {

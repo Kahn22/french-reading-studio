@@ -33,7 +33,7 @@ export async function initializeAppShell(): Promise<void> {
 export async function loadReadingSection(workId: string, index: number): Promise<ReadingSectionPackage> {
   const section = embeddedPackages?.readingSections.find((item) => item.workId === workId && item.index === index)
     ?? await contentLoader.section(workId, index);
-  mergeById(bundle.units, [section.unit]);
+  mergeById(bundle.units, section.units);
   mergeById(bundle.occurrences, section.occurrences);
   mergeById(bundle.lemmas, section.lemmas);
   mergeById(bundle.senses, section.senses);
